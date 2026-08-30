@@ -10,6 +10,9 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = "Apache-2.0"
 
+[project.scripts]
+codex-context-monitoring = "codex_context_monitoring.app:main"
+
 [dependency-groups]
 dev = [
     "coverage[toml]",
