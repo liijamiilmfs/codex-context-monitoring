@@ -30,7 +30,7 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
       - name: Check out release pull request
-        if: steps.release.outputs.prs_created == 'true'
+        if: steps.release.outputs.pr != ''
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
@@ -38,7 +38,7 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
       - name: Install uv and Python
-        if: steps.release.outputs.prs_created == 'true'
+        if: steps.release.outputs.pr != ''
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: true
@@ -46,7 +46,7 @@ jobs:
           version: "0.12.7"
 
       - name: Synchronize release lockfile
-        if: steps.release.outputs.prs_created == 'true'
+        if: steps.release.outputs.pr != ''
         env:
           RELEASE_BRANCH: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
         run: |
