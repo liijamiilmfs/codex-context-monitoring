@@ -16,6 +16,25 @@ The repository contains the Python 3.14 project scaffold and delivery foundation
 
 CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Session ingestion, metric calculation, persistence, and visualization have not been implemented yet.
 
+## Architecture role map
+
+Architectural roles describe responsibilities, not folders or projects. The current MVP production code implements only these roles under R0S-ARCH-LAYERS `2.0.0-rc.2`:
+
+| Role | Production symbol | Responsibility | Permitted dependency direction |
+| -- | -- | -- | -- |
+| Controller | `src/codex_context_monitoring/app.py`: `main` | Handles the local CLI entry point and returns its exit status. It contains no domain decisions, persistence, outbound integration I/O, or reusable transformation. | May depend only on Service, Transformer, Provider, Contract, and Model roles. |
+| Provider | `src/codex_context_monitoring/__init__.py`: `__version__` | Exposes domain-agnostic package metadata from the current process. | May depend only on Connector, Transformer, Provider, and provider-owned Model roles. Process-local metadata access stays Provider-owned; any direct external I/O must be delegated to a Connector. |
+
+The production source structure mirrors that map:
+
+```text
+src/codex_context_monitoring/
+|-- __init__.py  # Provider: package-version metadata
+`-- app.py       # Controller: local CLI entry point
+```
+
+No other architectural role is implemented yet, so the repository does not contain empty role folders or projects. New roles are added only when production responsibilities require them.
+
 ## Run the local application
 
 After installing the locked development environment, start the local shell with:
