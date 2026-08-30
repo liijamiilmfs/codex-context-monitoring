@@ -16,7 +16,7 @@ The repository contains the Python 3.14 project scaffold and delivery foundation
 
 CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Session ingestion, metric calculation, persistence, and visualization have not been implemented yet.
 
-## Architecture role map
+### Architecture role map
 
 Architectural roles describe responsibilities, not folders or projects. The current MVP production code implements only these roles under R0S-ARCH-LAYERS `2.0.0-rc.2`:
 
