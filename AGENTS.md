@@ -15,6 +15,10 @@
 - Unit tests live under `tests/unit/`. Opt-in integration tests live under `tests/integration/`. Test modules use `test_*.py` names.
 - GitHub automation lives under `.github/`.
 
+## Architecture
+
+- software layering and architecture approaches are defined in https://linear.app/rule0softworks/document/software-layer-roles-and-dependency-policy-ddc03ba215a5
+
 ## Setup
 
 Install the locked development environment from the repository root:
@@ -37,6 +41,13 @@ Use test-driven development for behavior changes:
 4. Run the focused test and then the full quality gate.
 
 Keep package code in `src/codex_context_monitoring/`. Keep tests outside the package in `tests/`. Add abstractions only when current behavior requires them.
+
+## Issue Tracking
+
+- issues are tracked via Linear in project Codex Context Monitoring `62cac867-d721-4df9-99d2-8d5310166b94`
+- issues should be moved to `In Progress` when being worked on. The rest of the flows is handled by openining and successfully merging a PR. 
+- comments should be added to issues explaining closure evidence 
+    - brevity is key in Linear comment posts
 
 ## Required validation
 
