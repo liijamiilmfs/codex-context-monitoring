@@ -12,9 +12,19 @@ A Python application for analyzing and visualizing session usage across Codex De
 
 ## Current state
 
-The repository contains the Python 3.14 project scaffold and delivery foundation. Version `0.1.0` provides an importable package and one smoke test.
+The repository contains the Python 3.14 project scaffold and delivery foundation. Version `0.1.0` provides an importable package, a runnable local shell, and smoke tests.
 
 CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Session ingestion, metric calculation, persistence, and visualization have not been implemented yet.
+
+## Run the local application
+
+After installing the locked development environment, start the local shell with:
+
+```powershell
+uv run codex-context-monitoring
+```
+
+The MVP accepts session-usage data only when it is manually supplied by a later workflow. Automatic collection from Codex Desktop or Codex CLI is explicitly out of scope. The shell does not read local Codex files, connect to a remote service, or persist data.
 
 ## Development
 
