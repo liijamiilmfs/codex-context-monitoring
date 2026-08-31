@@ -1,6 +1,7 @@
+from decimal import ROUND_DOWN, ROUND_UP, localcontext
 from xml.etree import ElementTree
 
-from matplotlib import rc_context
+from matplotlib import rc_context, rcParams
 
 from codex_context_monitoring.chart_models import Bar, BarChart, RenderedChart
 from codex_context_monitoring.providers.chart_renderer import ChartRenderer
@@ -9,6 +10,7 @@ from codex_context_monitoring.providers.matplotlib_svg_chart_renderer import (
 )
 
 SVG_NAMESPACE = "{http://www.w3.org/2000/svg}"
+XML_SPACE_ATTRIBUTE = "{http://www.w3.org/XML/1998/namespace}space"
 
 
 def _chart_with_bars(*bars: Bar) -> BarChart:
@@ -60,6 +62,20 @@ def test_renderer_ignores_process_level_matplotlib_configuration() -> None:
     assert rendered_chart == expected
 
 
+def test_renderer_ignores_in_place_mutation_of_matplotlib_configuration() -> None:
+    chart = _chart_with_bars(Bar(label="System instructions", value=-20))
+    expected = MatplotlibSvgChartRenderer().render(chart)
+    original_font_family = rcParams["font.family"][0]
+
+    try:
+        rcParams["font.family"][0] = "monospace"
+        rendered_chart = MatplotlibSvgChartRenderer().render(chart)
+    finally:
+        rcParams["font.family"][0] = original_font_family
+
+    assert rendered_chart == expected
+
+
 def test_renderer_scales_values_beyond_the_floating_point_range() -> None:
     chart = _chart_with_bars(
         Bar(label="Very large source", value=10**4299),
@@ -73,6 +89,23 @@ def test_renderer_scales_values_beyond_the_floating_point_range() -> None:
     assert b"-20" in rendered_chart.content
 
 
+def test_renderer_ignores_process_decimal_context() -> None:
+    maximum = 12345 * 10**396
+    chart = _chart_with_bars(
+        Bar(label="Maximum", value=maximum),
+        Bar(label="Repeating ratio", value=maximum // 3),
+    )
+
+    with localcontext() as context:
+        context.rounding = ROUND_DOWN
+        rounded_down = MatplotlibSvgChartRenderer().render(chart)
+    with localcontext() as context:
+        context.rounding = ROUND_UP
+        rounded_up = MatplotlibSvgChartRenderer().render(chart)
+
+    assert rounded_up == rounded_down
+
+
 def test_renderer_returns_valid_svg_for_labels_containing_double_hyphens() -> None:
     chart = _chart_with_bars(Bar(label="cache--tools", value=20))
 
@@ -83,6 +116,20 @@ def test_renderer_returns_valid_svg_for_labels_containing_double_hyphens() -> No
         "".join(element.itertext()) == "cache--tools"
         for element in root.iter(f"{SVG_NAMESPACE}text")
     )
+
+
+def test_renderer_preserves_interior_whitespace_in_svg_text_labels() -> None:
+    chart = _chart_with_bars(Bar(label="Custom  Source", value=20))
+
+    rendered_chart = MatplotlibSvgChartRenderer().render(chart)
+
+    root = ElementTree.fromstring(rendered_chart.content)
+    label_element = next(
+        element
+        for element in root.iter(f"{SVG_NAMESPACE}text")
+        if "".join(element.itertext()) == "Custom  Source"
+    )
+    assert label_element.attrib[XML_SPACE_ATTRIBUTE] == "preserve"
 
 
 def test_renderer_displays_bars_in_model_order_from_top_to_bottom() -> None:

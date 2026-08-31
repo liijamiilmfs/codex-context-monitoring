@@ -1,6 +1,7 @@
 """Matplotlib implementation of the in-memory SVG chart-rendering provider."""
 
-from decimal import Decimal, localcontext
+from copy import deepcopy
+from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
 from io import BytesIO
 from sys import float_info
 
@@ -15,7 +16,8 @@ _BASE_FIGURE_HEIGHT = 4.5
 _FIGURE_VERTICAL_PADDING = 1.5
 _HEIGHT_PER_BAR = 0.35
 _MAX_SAFE_COORDINATE = float_info.max / 16
-_RENDERER_RC_PARAMS = dict(rcParamsDefault)
+_DECIMAL_CONTEXT = Context(prec=16, rounding=ROUND_HALF_EVEN)
+_RENDERER_RC_PARAMS = deepcopy(dict(rcParamsDefault))
 _RENDERER_RC_PARAMS.pop("backend", None)
 _RENDERER_RC_PARAMS.update(
     {
@@ -37,8 +39,7 @@ def _plot_values(values: tuple[int, ...]) -> tuple[tuple[int | float, ...], int 
     if maximum <= _MAX_SAFE_COORDINATE:
         return values, None
 
-    with localcontext() as context:
-        context.prec = 16
+    with localcontext(_DECIMAL_CONTEXT):
         scaled_values = tuple(
             float(Decimal(value) / Decimal(maximum)) for value in values
         )
@@ -48,16 +49,17 @@ def _plot_values(values: tuple[int, ...]) -> tuple[tuple[int | float, ...], int 
 def _format_value(value: int) -> str:
     if abs(value) <= _MAX_SAFE_COORDINATE:
         return f"{value:+,}"
-    return f"{Decimal(value):+.3E}"
+    with localcontext(_DECIMAL_CONTEXT):
+        return f"{Decimal(value):+.3E}"
 
 
 def _format_scaled_tick(position: float, maximum: int) -> str:
     if position == 0:
         return "0"
-    with localcontext() as context:
+    with localcontext(_DECIMAL_CONTEXT) as context:
         context.prec = 4
         value = Decimal(str(position)) * Decimal(maximum)
-    return f"{value:.2E}"
+        return f"{value:.2E}"
 
 
 class MatplotlibSvgChartRenderer:
@@ -105,4 +107,5 @@ class MatplotlibSvgChartRenderer:
             content = b"\n".join(
                 line.rstrip(b" \t") for line in output.getvalue().split(b"\n")
             )
+            content = content.replace(b"<text ", b'<text xml:space="preserve" ')
             return RenderedChart(media_type="image/svg+xml", content=content)
