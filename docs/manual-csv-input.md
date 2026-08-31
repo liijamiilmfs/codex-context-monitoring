@@ -15,15 +15,16 @@ The header must contain these columns in this order:
 | `snapshot_id` | Required | Non-empty stable label for one captured observation set. Multiple source rows may share the same label. |
 | `surface` | Required | Non-empty raw surface label supplied by the operator, such as `Codex Desktop` or `Codex CLI`. |
 | `source` | Required | Non-empty raw source or category label supplied by the operator. |
-| `tokens` | Required | Base-10 integer greater than or equal to zero. |
+| `tokens` | Required | Base-10 integer greater than or equal to zero, with at most 4,300 digits. |
 | `captured_at` | Optional | ISO 8601 timestamp when known; otherwise blank. |
-| `context_limit` | Optional | Base-10 integer greater than zero when known; otherwise blank. |
+| `context_limit` | Optional | Base-10 integer greater than zero with at most 4,300 digits when known; otherwise blank. |
 | `notes` | Optional | Free-text operator note; otherwise blank. |
 
-Files must be UTF-8 encoded and use standard CSV quoting for values containing
-commas, double quotes, or newlines. Required values must not be blank. An empty
-optional field means that the value was not supplied; consumers must preserve
-that distinction and must not invent a default value.
+Files must be UTF-8 encoded, may include one leading UTF-8 byte-order mark, and
+must use standard CSV quoting for values containing commas, double quotes, or
+newlines. Required values must not be blank. An empty optional field means that
+the value was not supplied; consumers must preserve that distinction and must
+not invent a default value.
 
 The input boundary preserves `surface` and `source` exactly as supplied. It does
 not trim, rename, group, or otherwise normalize either value.

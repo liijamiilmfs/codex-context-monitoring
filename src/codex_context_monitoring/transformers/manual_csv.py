@@ -2,9 +2,13 @@
 
 import csv
 import re
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from io import StringIO
+from threading import Lock
 from typing import NoReturn
 
 from codex_context_monitoring.models import ContextUsageObservation
@@ -20,6 +24,9 @@ EXPECTED_COLUMNS = (
 )
 REQUIRED_TEXT_COLUMNS = ("snapshot_id", "surface", "source")
 INTEGER_PATTERN = re.compile(r"-?[0-9]+")
+VALID_QUOTED_FIELD_PATTERN = re.compile(r'(?<![^,\r\n])"(?:[^"]|"")*"(?=$|[,\r\n])')
+MAX_INTEGER_DIGITS = 4_300
+_CSV_FIELD_LIMIT_LOCK = Lock()
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,12 +53,43 @@ class ManualCsvValidationError(ValueError):
 
 def parse_manual_csv(csv_text: str) -> tuple[ContextUsageObservation, ...]:
     """Parse complete in-memory CSV text or raise one aggregate validation error."""
+    csv_text = csv_text.removeprefix("\ufeff")
+    invalid_quote_row = _find_invalid_quote_row(csv_text)
+    if invalid_quote_row is not None:
+        _raise_malformed_csv(invalid_quote_row)
+
+    with _allow_in_memory_field_sizes():
+        return _parse_manual_csv(csv_text)
+
+
+@contextmanager
+def _allow_in_memory_field_sizes() -> Iterator[None]:
+    with _CSV_FIELD_LIMIT_LOCK:
+        previous_limit = csv.field_size_limit()
+        try:
+            csv.field_size_limit(sys.maxsize)
+            yield
+        finally:
+            csv.field_size_limit(previous_limit)
+
+
+def _find_invalid_quote_row(csv_text: str) -> int | None:
+    unquoted_text = VALID_QUOTED_FIELD_PATTERN.sub(
+        lambda match: match.group().replace('"', " "), csv_text
+    )
+    quote_index = unquoted_text.find('"')
+    if quote_index == -1:
+        return None
+    return 1 + len(re.findall(r"\r\n|\r|\n", unquoted_text[:quote_index]))
+
+
+def _parse_manual_csv(csv_text: str) -> tuple[ContextUsageObservation, ...]:
     reader = csv.reader(StringIO(csv_text, newline=""), strict=True)
     try:
         header = next(reader)
     except StopIteration:
         _raise_invalid_header()
-    except csv.Error:
+    except csv.Error:  # pragma: no cover - defensive csv implementation fallback
         _raise_malformed_csv(reader.line_num)
 
     if tuple(header) != EXPECTED_COLUMNS:
@@ -70,35 +108,40 @@ def parse_manual_csv(csv_text: str) -> tuple[ContextUsageObservation, ...]:
 
     observations: list[ContextUsageObservation] = []
     issues: list[ValidationIssue] = []
-    try:
-        for values in reader:
-            row_number = reader.line_num
-            if len(values) != len(EXPECTED_COLUMNS):
-                issues.append(
-                    ValidationIssue(
-                        row=row_number,
-                        field="row",
-                        code="wrong_column_count",
-                        message=(
-                            f"expected {len(EXPECTED_COLUMNS)} columns, got {len(values)}"
-                        ),
-                    )
+    while True:
+        row_number = reader.line_num + 1
+        try:
+            values = next(reader)
+        except StopIteration:
+            break
+        except csv.Error:  # pragma: no cover - defensive csv implementation fallback
+            issues.append(
+                ValidationIssue(
+                    row=row_number,
+                    field="csv",
+                    code="malformed_csv",
+                    message="input is not well-formed CSV",
                 )
-                continue
-
-            observation, row_issues = _parse_row(row_number, values)
-            issues.extend(row_issues)
-            if observation is not None:
-                observations.append(observation)
-    except csv.Error:
-        issues.append(
-            ValidationIssue(
-                row=max(reader.line_num, 1),
-                field="csv",
-                code="malformed_csv",
-                message="input is not well-formed CSV",
             )
-        )
+            break
+
+        if len(values) != len(EXPECTED_COLUMNS):
+            issues.append(
+                ValidationIssue(
+                    row=row_number,
+                    field="row",
+                    code="wrong_column_count",
+                    message=(
+                        f"expected {len(EXPECTED_COLUMNS)} columns, got {len(values)}"
+                    ),
+                )
+            )
+            continue
+
+        observation, row_issues = _parse_row(row_number, values)
+        issues.extend(row_issues)
+        if observation is not None:
+            observations.append(observation)
 
     if issues:
         raise ManualCsvValidationError(issues)
@@ -153,6 +196,16 @@ def _parse_tokens(row_number: int, value: str, issues: list[ValidationIssue]) ->
             )
         )
         return 0
+    if len(value.removeprefix("-")) > MAX_INTEGER_DIGITS:
+        issues.append(
+            ValidationIssue(
+                row=row_number,
+                field="tokens",
+                code="integer_too_large",
+                message=f"value must contain at most {MAX_INTEGER_DIGITS} digits",
+            )
+        )
+        return 0
 
     tokens = int(value)
     if tokens < 0:
@@ -171,6 +224,20 @@ def _parse_timestamp(
     row_number: int, value: str, issues: list[ValidationIssue]
 ) -> datetime | None:
     if not value:
+        return None
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        pass
+    else:
+        issues.append(
+            ValidationIssue(
+                row=row_number,
+                field="captured_at",
+                code="invalid_timestamp",
+                message="value must be an ISO 8601 timestamp or blank",
+            )
+        )
         return None
     try:
         return datetime.fromisoformat(value)
@@ -198,6 +265,16 @@ def _parse_context_limit(
                 field="context_limit",
                 code="invalid_integer",
                 message="value must be a base-10 integer or blank",
+            )
+        )
+        return None
+    if len(value.removeprefix("-")) > MAX_INTEGER_DIGITS:
+        issues.append(
+            ValidationIssue(
+                row=row_number,
+                field="context_limit",
+                code="integer_too_large",
+                message=f"value must contain at most {MAX_INTEGER_DIGITS} digits or be blank",
             )
         )
         return None

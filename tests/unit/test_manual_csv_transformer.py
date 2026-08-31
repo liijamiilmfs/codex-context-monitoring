@@ -84,9 +84,43 @@ def test_parse_manual_csv_rejects_invalid_tokens(
     )
 
 
+@pytest.mark.parametrize("field", ["tokens", "context_limit"])
+def test_parse_manual_csv_reports_oversized_integers_as_validation_issues(
+    field: str,
+) -> None:
+    values = {
+        "tokens": "9" * 5_000,
+        "context_limit": "1",
+    }
+    if field == "context_limit":
+        values = {"tokens": "1", "context_limit": "9" * 5_000}
+
+    with pytest.raises(ManualCsvValidationError) as caught:
+        parse_manual_csv(
+            HEADER
+            + "snapshot-001,Codex CLI,Tool output,"
+            + f"{values['tokens']},,{values['context_limit']},\n"
+        )
+
+    issue = caught.value.issues[0]
+    assert (issue.row, issue.field, issue.code) == (2, field, "integer_too_large")
+
+
 def test_parse_manual_csv_rejects_invalid_nonblank_timestamp() -> None:
     with pytest.raises(ManualCsvValidationError) as caught:
         parse_manual_csv(HEADER + "snapshot-001,Codex CLI,Tool output,1,yesterday,,\n")
+
+    issue = caught.value.issues[0]
+    assert (issue.row, issue.field, issue.code) == (
+        2,
+        "captured_at",
+        "invalid_timestamp",
+    )
+
+
+def test_parse_manual_csv_rejects_date_only_captured_at() -> None:
+    with pytest.raises(ManualCsvValidationError) as caught:
+        parse_manual_csv(HEADER + "snapshot-001,Codex CLI,Tool output,1,2026-08-30,,\n")
 
     issue = caught.value.issues[0]
     assert (issue.row, issue.field, issue.code) == (
@@ -186,9 +220,53 @@ def test_parse_manual_csv_rejects_malformed_csv() -> None:
     assert issue.code == "malformed_csv"
 
 
+def test_parse_manual_csv_rejects_bare_quote_in_unquoted_field() -> None:
+    with pytest.raises(ManualCsvValidationError) as caught:
+        parse_manual_csv(HEADER + 'snapshot-001,Co"dex CLI,Tool output,1,,,\n')
+
+    issue = caught.value.issues[0]
+    assert (issue.row, issue.field, issue.code) == (2, "csv", "malformed_csv")
+
+
+def test_parse_manual_csv_accepts_standard_escaped_quotes() -> None:
+    observations = parse_manual_csv(
+        HEADER + 'snapshot-001,Codex CLI,Tool output,1,,,"say ""hello"""\n'
+    )
+
+    assert observations[0].notes == 'say "hello"'
+
+
 def test_parse_manual_csv_rejects_a_malformed_header() -> None:
     with pytest.raises(ManualCsvValidationError) as caught:
         parse_manual_csv('"unterminated')
 
     issue = caught.value.issues[0]
     assert (issue.row, issue.field, issue.code) == (1, "csv", "malformed_csv")
+
+
+def test_parse_manual_csv_accepts_notes_larger_than_the_csv_module_default() -> None:
+    notes = "n" * 131_073
+
+    observations = parse_manual_csv(
+        HEADER + f'snapshot-001,Codex CLI,Tool output,1,,,"{notes}"\n'
+    )
+
+    assert observations[0].notes == notes
+
+
+def test_parse_manual_csv_uses_multiline_record_start_for_issue_row() -> None:
+    with pytest.raises(ManualCsvValidationError) as caught:
+        parse_manual_csv(
+            HEADER + 'snapshot-001,Codex CLI,Tool output,nope,,,"line one\nline two"\n'
+        )
+
+    issue = caught.value.issues[0]
+    assert (issue.row, issue.field, issue.code) == (2, "tokens", "invalid_integer")
+
+
+def test_parse_manual_csv_accepts_a_single_leading_utf8_bom() -> None:
+    observations = parse_manual_csv(
+        "\ufeff" + HEADER + "snapshot-001,Codex CLI,Tool output,1,,,\n"
+    )
+
+    assert observations[0].snapshot_id == "snapshot-001"
