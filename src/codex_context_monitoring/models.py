@@ -10,7 +10,9 @@ class ContextUsageObservation:
 
     snapshot_id: str
     surface: str
+    raw_surface: str
     source: str
+    raw_source: str
     tokens: int
     captured_at: datetime | None
     context_limit: int | None
