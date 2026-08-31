@@ -12,9 +12,9 @@ A Python application for analyzing and visualizing session usage across Codex De
 
 ## Current state
 
-The repository contains the Python 3.14 project scaffold and delivery foundation. Version `0.1.0` provides an importable package, a runnable local shell, smoke tests, and a pure Transformer for the documented manual CSV input contract.
+The repository contains the Python 3.14 project scaffold and delivery foundation. It provides an importable package, a runnable local shell, smoke tests, a pure Transformer for the documented manual CSV input contract, and a Service that compares explicit normalized snapshots by canonical source.
 
-CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Automated session ingestion, metric calculation, persistence, and visualization have not been implemented yet.
+CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Snapshot token totals and deltas are calculated over normalized in-memory observations. Automated session ingestion, persistence, and visualization have not been implemented yet.
 
 ### Architecture role map
 
@@ -24,7 +24,8 @@ Architectural roles describe responsibilities, not folders or projects. The curr
 | -- | -- | -- | -- |
 | Controller | `src/codex_context_monitoring/app.py`: `main` | Handles the local CLI entry point and returns its exit status. It contains no domain decisions, persistence, outbound integration I/O, or reusable transformation. | May depend only on Service, Transformer, Provider, Contract, and Model roles. |
 | Provider | `src/codex_context_monitoring/__init__.py`: `__version__` | Exposes domain-agnostic package metadata from the current process. | May depend only on Connector, Transformer, Provider, and provider-owned Model roles. Process-local metadata access stays Provider-owned; any direct external I/O must be delegated to a Connector. |
-| Model | `src/codex_context_monitoring/models.py`: `ContextUsageObservation` | Defines the immutable, behavior-free application representation of one context-usage observation. | Has no dependencies on behavior-bearing roles. |
+| Model | `src/codex_context_monitoring/models.py`: `ContextUsageObservation`, `SourceUsageComparison`, `SnapshotUsageComparison` | Defines immutable, behavior-free application representations for context-usage observations and snapshot-comparison results. | Has no dependencies on behavior-bearing roles. |
+| Service | `src/codex_context_monitoring/services/snapshot_comparison.py`: `compare_snapshots` | Aggregates normalized observations for two explicit snapshots and returns canonical-source and overall token totals and deltas. It performs no parsing, external I/O, persistence, or presentation formatting. | May depend on application Models. |
 | Transformer | `src/codex_context_monitoring/transformers/manual_csv.py`: `parse_manual_csv` | Purely converts complete in-memory manual CSV text into typed application Models and atomically reports stable validation issues. It performs no external I/O. | May depend on Models and Transformer-local structural validation support. |
 
 The production source structure mirrors that map:
@@ -34,6 +35,9 @@ src/codex_context_monitoring/
 |-- __init__.py  # Provider: package-version metadata
 |-- app.py       # Controller: local CLI entry point
 |-- models.py    # Model: typed context-usage observations
+|-- services/
+|   |-- __init__.py
+|   `-- snapshot_comparison.py  # Service: snapshot totals and deltas
 `-- transformers/
     |-- __init__.py
     `-- manual_csv.py  # Transformer: manual CSV text to Models
