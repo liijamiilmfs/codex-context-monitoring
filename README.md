@@ -12,9 +12,9 @@ A Python application for analyzing and visualizing session usage across Codex De
 
 ## Current state
 
-The repository contains the Python 3.14 project scaffold and delivery foundation. Version `0.1.0` provides an importable package, a runnable local shell, and smoke tests.
+The repository contains the Python 3.14 project scaffold and delivery foundation. Version `0.1.0` provides an importable package, a runnable local shell, smoke tests, and a pure Transformer for the documented manual CSV input contract.
 
-CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Session ingestion, metric calculation, persistence, and visualization have not been implemented yet.
+CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Automated session ingestion, metric calculation, persistence, and visualization have not been implemented yet.
 
 ### Architecture role map
 
@@ -24,13 +24,19 @@ Architectural roles describe responsibilities, not folders or projects. The curr
 | -- | -- | -- | -- |
 | Controller | `src/codex_context_monitoring/app.py`: `main` | Handles the local CLI entry point and returns its exit status. It contains no domain decisions, persistence, outbound integration I/O, or reusable transformation. | May depend only on Service, Transformer, Provider, Contract, and Model roles. |
 | Provider | `src/codex_context_monitoring/__init__.py`: `__version__` | Exposes domain-agnostic package metadata from the current process. | May depend only on Connector, Transformer, Provider, and provider-owned Model roles. Process-local metadata access stays Provider-owned; any direct external I/O must be delegated to a Connector. |
+| Model | `src/codex_context_monitoring/models.py`: `ContextUsageObservation` | Defines the immutable, behavior-free application representation of one context-usage observation. | Has no dependencies on behavior-bearing roles. |
+| Transformer | `src/codex_context_monitoring/transformers/manual_csv.py`: `parse_manual_csv` | Purely converts complete in-memory manual CSV text into typed application Models and atomically reports stable validation issues. It performs no external I/O. | May depend on Models and Transformer-local structural validation support. |
 
 The production source structure mirrors that map:
 
 ```text
 src/codex_context_monitoring/
 |-- __init__.py  # Provider: package-version metadata
-`-- app.py       # Controller: local CLI entry point
+|-- app.py       # Controller: local CLI entry point
+|-- models.py    # Model: typed context-usage observations
+`-- transformers/
+    |-- __init__.py
+    `-- manual_csv.py  # Transformer: manual CSV text to Models
 ```
 
 No other architectural role is implemented yet, so the repository does not contain empty role folders or projects. New roles are added only when production responsibilities require them.
