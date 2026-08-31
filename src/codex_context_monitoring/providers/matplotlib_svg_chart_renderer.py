@@ -1,12 +1,63 @@
 """Matplotlib implementation of the in-memory SVG chart-rendering provider."""
 
+from decimal import Decimal, localcontext
 from io import BytesIO
+from sys import float_info
 
-from matplotlib import rc_context
+from matplotlib import rc_context, rcParamsDefault
 from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
+from matplotlib.ticker import FuncFormatter
 
 from codex_context_monitoring.chart_models import BarChart, RenderedChart
+
+_BASE_FIGURE_HEIGHT = 4.5
+_FIGURE_VERTICAL_PADDING = 1.5
+_HEIGHT_PER_BAR = 0.35
+_MAX_SAFE_COORDINATE = float_info.max / 16
+_RENDERER_RC_PARAMS = dict(rcParamsDefault)
+_RENDERER_RC_PARAMS.pop("backend", None)
+_RENDERER_RC_PARAMS.update(
+    {
+        "svg.fonttype": "none",
+        "svg.hashsalt": "codex-context-monitoring",
+    }
+)
+
+
+def _figure_height(bar_count: int) -> float:
+    return max(
+        _BASE_FIGURE_HEIGHT,
+        _FIGURE_VERTICAL_PADDING + (_HEIGHT_PER_BAR * bar_count),
+    )
+
+
+def _plot_values(values: tuple[int, ...]) -> tuple[tuple[int | float, ...], int | None]:
+    maximum = max((abs(value) for value in values), default=0)
+    if maximum <= _MAX_SAFE_COORDINATE:
+        return values, None
+
+    with localcontext() as context:
+        context.prec = 16
+        scaled_values = tuple(
+            float(Decimal(value) / Decimal(maximum)) for value in values
+        )
+    return scaled_values, maximum
+
+
+def _format_value(value: int) -> str:
+    if abs(value) <= _MAX_SAFE_COORDINATE:
+        return f"{value:+,}"
+    return f"{Decimal(value):+.3E}"
+
+
+def _format_scaled_tick(position: float, maximum: int) -> str:
+    if position == 0:
+        return "0"
+    with localcontext() as context:
+        context.prec = 4
+        value = Decimal(str(position)) * Decimal(maximum)
+    return f"{value:.2E}"
 
 
 class MatplotlibSvgChartRenderer:
@@ -14,25 +65,36 @@ class MatplotlibSvgChartRenderer:
 
     def render(self, chart: BarChart) -> RenderedChart:
         """Render the supplied generic chart into an SVG held in memory."""
-        with rc_context({"svg.hashsalt": "codex-context-monitoring"}):
+        with rc_context(_RENDERER_RC_PARAMS):
             figure = Figure(
-                figsize=(8, 4.5), dpi=144, facecolor="white", layout="tight"
+                figsize=(8, _figure_height(len(chart.bars))),
+                dpi=144,
+                facecolor="white",
+                layout="tight",
             )
             canvas = FigureCanvasSVG(figure)
             axes = figure.subplots()
             positions = tuple(range(len(chart.bars)))
             values = tuple(bar.value for bar in chart.bars)
-            bars = axes.barh(positions, values, color="#2672a8")
+            plot_values, scale_maximum = _plot_values(values)
+            bars = axes.barh(positions, plot_values, color="#2672a8")
 
             axes.set_yticks(positions, labels=tuple(bar.label for bar in chart.bars))
+            axes.invert_yaxis()
             axes.set_xlabel(chart.value_axis_label)
+            if scale_maximum is not None:
+                axes.xaxis.set_major_formatter(
+                    FuncFormatter(
+                        lambda position, _: _format_scaled_tick(position, scale_maximum)
+                    )
+                )
             axes.set_title(chart.title, loc="left", fontweight="bold")
             figure.suptitle(chart.subtitle, x=0.125, ha="left", fontsize="medium")
             axes.axvline(0, color="#4d4d4d", linewidth=0.8)
             axes.grid(axis="x", color="#d9d9d9", linewidth=0.8)
             axes.set_axisbelow(True)
             axes.bar_label(
-                bars, labels=tuple(f"{value:+,}" for value in values), padding=3
+                bars, labels=tuple(_format_value(value) for value in values), padding=3
             )
 
             output = BytesIO()
