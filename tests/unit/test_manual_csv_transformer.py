@@ -20,7 +20,9 @@ def test_parse_manual_csv_returns_typed_models_for_checked_in_sample() -> None:
     assert observations[0] == ContextUsageObservation(
         snapshot_id="snapshot-001",
         surface="Codex Desktop",
+        raw_surface="Codex Desktop",
         source="System instructions",
+        raw_source="System instructions",
         tokens=14320,
         captured_at=datetime(2026, 8, 30, 14, tzinfo=UTC),
         context_limit=114688,
@@ -31,14 +33,67 @@ def test_parse_manual_csv_returns_typed_models_for_checked_in_sample() -> None:
     assert observations[1].notes is None
 
 
-def test_parse_manual_csv_preserves_raw_required_labels() -> None:
+def test_parse_manual_csv_normalizes_labels_and_preserves_raw_values() -> None:
     observations = parse_manual_csv(
-        HEADER + " snapshot-001 , Codex Desktop , System instructions ,0,,,\n"
+        HEADER + " snapshot-001 , CODEX-DESKTOP , SYSTEM-INSTRUCTIONS ,0,,,\n"
     )
 
     assert observations[0].snapshot_id == " snapshot-001 "
-    assert observations[0].surface == " Codex Desktop "
-    assert observations[0].source == " System instructions "
+    assert observations[0].surface == "Codex Desktop"
+    assert observations[0].raw_surface == " CODEX-DESKTOP "
+    assert observations[0].source == "System instructions"
+    assert observations[0].raw_source == " SYSTEM-INSTRUCTIONS "
+
+
+@pytest.mark.parametrize(
+    ("raw_surface", "raw_source", "surface", "source"),
+    [
+        (
+            "codex desktop",
+            "system instructions",
+            "Codex Desktop",
+            "System instructions",
+        ),
+        ("CODEX-CLI", "TOOL-OUTPUT", "Codex CLI", "Tool output"),
+        (" Codex CLI ", " USER-CONVERSATION ", "Codex CLI", "User conversation"),
+    ],
+)
+def test_parse_manual_csv_normalizes_declared_label_aliases(
+    raw_surface: str, raw_source: str, surface: str, source: str
+) -> None:
+    observation = parse_manual_csv(
+        HEADER + f"snapshot-001,{raw_surface},{raw_source},1,,,\n"
+    )[0]
+
+    assert observation.surface == surface
+    assert observation.source == source
+
+
+def test_parse_manual_csv_trims_unknown_labels_without_collapsing_them() -> None:
+    observations = parse_manual_csv(
+        HEADER
+        + "snapshot-001, Custom Surface , Custom.Source ,1,,,\n"
+        + "snapshot-002,custom surface,custom-source,1,,,\n"
+    )
+
+    assert [(item.surface, item.source) for item in observations] == [
+        ("Custom Surface", "Custom.Source"),
+        ("custom surface", "custom-source"),
+    ]
+    assert [(item.raw_surface, item.raw_source) for item in observations] == [
+        (" Custom Surface ", " Custom.Source "),
+        ("custom surface", "custom-source"),
+    ]
+
+
+def test_parse_manual_csv_keeps_missing_optional_fields_absent() -> None:
+    observation = parse_manual_csv(
+        HEADER + "snapshot-001,Codex CLI,Tool output,1,,,\n"
+    )[0]
+
+    assert observation.captured_at is None
+    assert observation.context_limit is None
+    assert observation.notes is None
 
 
 @pytest.mark.parametrize("field", ["snapshot_id", "surface", "source"])

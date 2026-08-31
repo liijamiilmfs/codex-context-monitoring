@@ -23,6 +23,20 @@ EXPECTED_COLUMNS = (
     "notes",
 )
 REQUIRED_TEXT_COLUMNS = ("snapshot_id", "surface", "source")
+SURFACE_LABEL_ALIASES = {
+    "codex desktop": "Codex Desktop",
+    "codex-desktop": "Codex Desktop",
+    "codex cli": "Codex CLI",
+    "codex-cli": "Codex CLI",
+}
+SOURCE_LABEL_ALIASES = {
+    "system instructions": "System instructions",
+    "system-instructions": "System instructions",
+    "user conversation": "User conversation",
+    "user-conversation": "User conversation",
+    "tool output": "Tool output",
+    "tool-output": "Tool output",
+}
 INTEGER_PATTERN = re.compile(r"-?[0-9]+")
 VALID_QUOTED_FIELD_PATTERN = re.compile(r'(?<![^,\r\n])"(?:[^"]|"")*"(?=$|[,\r\n])')
 MAX_INTEGER_DIGITS = 4_300
@@ -171,11 +185,15 @@ def _parse_row(
     if issues:
         return None, issues
 
+    raw_surface = row["surface"]
+    raw_source = row["source"]
     return (
         ContextUsageObservation(
             snapshot_id=row["snapshot_id"],
-            surface=row["surface"],
-            source=row["source"],
+            surface=_normalize_label(raw_surface, SURFACE_LABEL_ALIASES),
+            raw_surface=raw_surface,
+            source=_normalize_label(raw_source, SOURCE_LABEL_ALIASES),
+            raw_source=raw_source,
             tokens=tokens,
             captured_at=captured_at,
             context_limit=context_limit,
@@ -183,6 +201,11 @@ def _parse_row(
         ),
         issues,
     )
+
+
+def _normalize_label(value: str, aliases: dict[str, str]) -> str:
+    trimmed_value = value.strip()
+    return aliases.get(trimmed_value.casefold(), trimmed_value)
 
 
 def _parse_tokens(row_number: int, value: str, issues: list[ValidationIssue]) -> int:
