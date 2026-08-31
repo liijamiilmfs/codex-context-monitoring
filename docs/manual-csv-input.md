@@ -2,8 +2,9 @@
 
 The MVP accepts manually recorded Codex context-usage observations as CSV. One
 row represents one reported context source within one named snapshot. Automatic
-collection, parsing into application models, normalization, and persistence are
-outside this contract.
+collection, normalization, and persistence are outside this contract. The pure
+manual CSV Transformer accepts complete in-memory text and atomically converts a
+valid document into application-owned Models.
 
 ## Columns
 
@@ -30,10 +31,12 @@ not trim, rename, group, or otherwise normalize either value.
 ## Architecture classification
 
 Under R0S-ARCH-LAYERS `2.0.0-rc.2`, the row schema is the serialized form of a
-Contract owned by the local manual-input boundary. This issue does not add a
-production Contract type or any behavior-bearing production role, so the
-production architecture role map remains unchanged. The checked-in CSV is
-non-production example data.
+Contract owned by the local manual-input boundary. `ContextUsageObservation` is
+the behavior-free application Model. `parse_manual_csv` is a stateless
+Transformer from the CSV representation into those Models; its narrow
+validation issue and aggregate error types are Transformer-local structural
+support. The Transformer performs no filesystem, network, process, telemetry,
+or other external I/O. The checked-in CSV is non-production example data.
 
 ## Valid sample
 
