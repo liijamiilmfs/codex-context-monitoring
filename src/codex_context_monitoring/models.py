@@ -17,3 +17,25 @@ class ContextUsageObservation:
     captured_at: datetime | None
     context_limit: int | None
     notes: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class SourceUsageComparison:
+    """Token totals and delta for one canonical source across two snapshots."""
+
+    source: str
+    baseline_tokens: int
+    comparison_tokens: int
+    delta_tokens: int
+
+
+@dataclass(frozen=True, slots=True)
+class SnapshotUsageComparison:
+    """Per-source and overall token comparison between two snapshots."""
+
+    baseline_snapshot_id: str
+    comparison_snapshot_id: str
+    sources: tuple[SourceUsageComparison, ...]
+    baseline_total_tokens: int
+    comparison_total_tokens: int
+    delta_total_tokens: int
