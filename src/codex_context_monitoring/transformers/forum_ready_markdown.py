@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 
 from codex_context_monitoring.models import SnapshotUsageComparison
 
@@ -65,9 +66,9 @@ def to_forum_ready_markdown(export: ForumReadyMarkdownInput) -> str:
             "",
             "| Metric | Tokens |",
             "| --- | ---: |",
-            f"| Baseline | {comparison.baseline_total_tokens} |",
-            f"| Comparison | {comparison.comparison_total_tokens} |",
-            f"| Delta | {comparison.delta_total_tokens} |",
+            f"| Baseline | {_format_integer(comparison.baseline_total_tokens)} |",
+            f"| Comparison | {_format_integer(comparison.comparison_total_tokens)} |",
+            f"| Delta | {_format_integer(comparison.delta_total_tokens)} |",
             "",
             "## Tokens by source",
             "",
@@ -77,8 +78,10 @@ def to_forum_ready_markdown(export: ForumReadyMarkdownInput) -> str:
     )
     lines.extend(
         "| "
-        f"{_table_cell(source.source)} | {source.baseline_tokens} | "
-        f"{source.comparison_tokens} | {source.delta_tokens} |"
+        f"{_table_cell(source.source)} | "
+        f"{_format_integer(source.baseline_tokens)} | "
+        f"{_format_integer(source.comparison_tokens)} | "
+        f"{_format_integer(source.delta_tokens)} |"
         for source in sorted(comparison.sources, key=lambda source: source.source)
     )
     lines.extend(
@@ -101,7 +104,7 @@ def to_forum_ready_markdown(export: ForumReadyMarkdownInput) -> str:
 
 def _format_surfaces(surfaces: tuple[str, ...]) -> str:
     labels = sorted(dict.fromkeys(surfaces))
-    return ", ".join(_plain_text(label) for label in labels) or "Not supplied"
+    return ", ".join(_literal_markdown(label) for label in labels) or "Not supplied"
 
 
 def _format_timestamp(captured_at: datetime | None) -> str:
@@ -113,7 +116,7 @@ def _format_timestamp(captured_at: datetime | None) -> str:
 def _format_context_limit(context_limit: int | None) -> str:
     if context_limit is None:
         return "Not supplied"
-    return f"{context_limit} tokens"
+    return f"{_format_integer(context_limit)} tokens"
 
 
 def _missing_metadata(export: ForumReadyMarkdownInput) -> list[str]:
@@ -130,7 +133,27 @@ def _missing_metadata(export: ForumReadyMarkdownInput) -> list[str]:
 
 
 def _inline_code(value: str) -> str:
-    return f"`{_plain_text(value)}`"
+    text = _plain_text(value)
+    delimiter = "`" * (_longest_backtick_run(text) + 1)
+    if (
+        text
+        and not text.isspace()
+        and (text[0] in {" ", "`"} or text[-1] in {" ", "`"})
+    ):
+        text = f" {text} "
+    return f"{delimiter}{text}{delimiter}"
+
+
+def _longest_backtick_run(value: str) -> int:
+    longest = 0
+    current = 0
+    for character in value:
+        if character == "`":
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    return longest
 
 
 def _plain_text(value: str) -> str:
@@ -138,4 +161,39 @@ def _plain_text(value: str) -> str:
 
 
 def _table_cell(value: str) -> str:
-    return _plain_text(value).replace("\\", "\\\\").replace("|", "\\|")
+    return _literal_markdown(value)
+
+
+def _literal_markdown(value: str) -> str:
+    entities = {
+        "!": "&#33;",
+        "#": "&#35;",
+        "$": "&#36;",
+        "&": "&amp;",
+        "(": "&#40;",
+        ")": "&#41;",
+        "*": "&#42;",
+        "+": "&#43;",
+        "-": "&#45;",
+        ".": "&#46;",
+        ":": "&#58;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "[": "&#91;",
+        "\\": "&#92;",
+        "]": "&#93;",
+        "^": "&#94;",
+        "_": "&#95;",
+        "`": "&#96;",
+        "{": "&#123;",
+        "|": "&#124;",
+        "}": "&#125;",
+        "~": "&#126;",
+    }
+    return "".join(
+        entities.get(character, character) for character in _plain_text(value)
+    )
+
+
+def _format_integer(value: int) -> str:
+    return format(Decimal(value), "f")
