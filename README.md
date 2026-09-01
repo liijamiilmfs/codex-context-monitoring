@@ -12,7 +12,7 @@ A Python application for analyzing and visualizing session usage across Codex De
 
 ## Current state
 
-The repository contains the Python 3.14 project scaffold and delivery foundation. It provides an importable package, a runnable local shell, smoke tests, a pure Transformer for the documented manual CSV input contract, a Service that compares explicit normalized snapshots by canonical source, and a static in-memory SVG chart for per-source token deltas.
+The repository contains the Python 3.14 project scaffold and delivery foundation. It provides an importable package, a runnable local shell, smoke tests, pure Transformers for the documented manual CSV input contract and forum-ready Markdown comparison exports, a Service that compares explicit normalized snapshots by canonical source, and a static in-memory SVG chart for per-source token deltas.
 
 CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Snapshot token totals and deltas are calculated over normalized in-memory observations. Automated session ingestion and persistence have not been implemented.
 
@@ -28,7 +28,7 @@ Architectural roles describe responsibilities, not folders or projects. The curr
 | Model | `src/codex_context_monitoring/models.py`: `ContextUsageObservation`, `SourceUsageComparison`, `SnapshotUsageComparison` | Defines immutable, behavior-free application representations for context-usage observations and snapshot-comparison results. | Has no dependencies on behavior-bearing roles. |
 | Model | `src/codex_context_monitoring/chart_models.py`: `Bar`, `BarChart`, `RenderedChart` | Defines provider-owned, domain-agnostic chart input and output representations. They are separate from context-usage domain models. | Has no dependencies on behavior-bearing roles. |
 | Service | `src/codex_context_monitoring/services/snapshot_comparison.py`: `compare_snapshots` | Aggregates normalized observations for two explicit snapshots and returns canonical-source and overall token totals and deltas. It performs no parsing, external I/O, persistence, or presentation formatting. | May depend on application Models. |
-| Transformer | `src/codex_context_monitoring/transformers/manual_csv.py`: `parse_manual_csv`; `transformers/token_delta_chart.py`: `to_token_delta_chart` | Purely converts complete in-memory manual CSV text into typed application Models, or converts a `SnapshotUsageComparison` into a provider-owned generic `BarChart`. Both perform no external I/O. | May depend on Models and Transformer-local structural validation support. |
+| Transformer | `src/codex_context_monitoring/transformers/manual_csv.py`: `parse_manual_csv`; `transformers/token_delta_chart.py`: `to_token_delta_chart`; `transformers/forum_ready_markdown.py`: `SnapshotMetadata`, `ForumReadyMarkdownInput`, `to_forum_ready_markdown` | Purely converts complete in-memory manual CSV text into typed application Models, converts a `SnapshotUsageComparison` into a provider-owned generic `BarChart`, or formats comparison evidence as portable Markdown. These Transformers perform no external I/O. | May depend on Models and Transformer-local structural validation support. |
 
 The production source structure mirrors that map:
 
@@ -46,6 +46,7 @@ src/codex_context_monitoring/
 |   `-- snapshot_comparison.py  # Service: snapshot totals and deltas
 `-- transformers/
     |-- __init__.py
+    |-- forum_ready_markdown.py  # Transformer: comparison evidence to Markdown
     |-- manual_csv.py  # Transformer: manual CSV text to Models
     `-- token_delta_chart.py  # Transformer: comparison Model to generic chart Model
 ```
