@@ -10,77 +10,208 @@
 
 A Python application for analyzing and visualizing session usage across Codex Desktop on Windows and Codex CLI.
 
+> [!IMPORTANT]
+> MVP input is manual-only. The app does not collect session data from Codex Desktop or Codex CLI, connect to a remote service, or persist data.
+
 ## Current state
 
-The repository contains the Python 3.14 project scaffold and delivery foundation. It provides an importable package, a runnable local shell, smoke tests, pure Transformers for the documented manual CSV input contract and forum-ready Markdown comparison exports, a Service that compares explicit normalized snapshots by canonical source, and a static in-memory SVG chart for per-source token deltas.
+The local MVP parses manual CSV into normalized observations, compares named snapshots, renders static SVG token-delta charts, and formats forum-ready Markdown. The checked-in sample workflow is reproducible; automated session ingestion, persistence, and Codex Desktop/CLI collection are not implemented.
 
-CI, CodeQL, Dependabot, Codecov, and Release Please are configured. Snapshot token totals and deltas are calculated over normalized in-memory observations. Automated session ingestion and persistence have not been implemented.
+CI, CodeQL, Dependabot, Codecov, and Release Please workflows are configured. Release Please manages version, changelog, tag, and GitHub Release updates; the package is not published to PyPI.
 
-### Architecture role map
+## Local MVP workflow
 
-Architectural roles describe responsibilities, not folders or projects. The current MVP production code implements only these roles under R0S-ARCH-LAYERS `2.0.0-rc.2`:
+Run these commands from the repository root. Python 3.14 or newer and [uv](https://docs.astral.sh/uv/) are required.
 
-| Role | Production symbol | Responsibility | Permitted dependency direction |
-| -- | -- | -- | -- |
-| Controller | `src/codex_context_monitoring/app.py`: `main` | Handles the local CLI entry point and returns its exit status. It contains no domain decisions, persistence, outbound integration I/O, or reusable transformation. | May depend only on Service, Transformer, Provider, Contract, and Model roles. |
-| Provider | `src/codex_context_monitoring/__init__.py`: `__version__` | Exposes domain-agnostic package metadata from the current process. | May depend only on Connector, Transformer, Provider, and provider-owned Model roles. Process-local metadata access stays Provider-owned; any direct external I/O must be delegated to a Connector. |
-| Provider | `src/codex_context_monitoring/providers/chart_renderer.py`: `ChartRenderer`; `providers/matplotlib_svg_chart_renderer.py`: `MatplotlibSvgChartRenderer` | Defines the application-owned chart capability and its Matplotlib implementation. The implementation accepts and returns only provider-owned models, performs no filesystem I/O, and keeps Matplotlib types inside its boundary. | May depend only on Connector, Transformer, Provider, provider-owned Model roles, and its isolated external rendering capability. |
-| Model | `src/codex_context_monitoring/models.py`: `ContextUsageObservation`, `SourceUsageComparison`, `SnapshotUsageComparison` | Defines immutable, behavior-free application representations for context-usage observations and snapshot-comparison results. | Has no dependencies on behavior-bearing roles. |
-| Model | `src/codex_context_monitoring/chart_models.py`: `Bar`, `BarChart`, `RenderedChart` | Defines provider-owned, domain-agnostic chart input and output representations. They are separate from context-usage domain models. | Has no dependencies on behavior-bearing roles. |
-| Service | `src/codex_context_monitoring/services/snapshot_comparison.py`: `compare_snapshots` | Aggregates normalized observations for two explicit snapshots and returns canonical-source and overall token totals and deltas. It performs no parsing, external I/O, persistence, or presentation formatting. | May depend on application Models. |
-| Transformer | `src/codex_context_monitoring/transformers/manual_csv.py`: `parse_manual_csv`; `transformers/token_delta_chart.py`: `to_token_delta_chart`; `transformers/forum_ready_markdown.py`: `SnapshotMetadata`, `ForumReadyMarkdownInput`, `to_forum_ready_markdown` | Purely converts complete in-memory manual CSV text into typed application Models, converts a `SnapshotUsageComparison` into a provider-owned generic `BarChart`, or formats comparison evidence as portable Markdown. These Transformers perform no external I/O. | May depend on Models and Transformer-local structural validation support. |
-
-The production source structure mirrors that map:
-
-```text
-src/codex_context_monitoring/
-|-- __init__.py  # Provider: package-version metadata
-|-- app.py       # Controller: local CLI entry point
-|-- chart_models.py  # Model: provider-owned generic chart data
-|-- models.py    # Model: typed context-usage observations
-|-- providers/
-|   |-- chart_renderer.py  # Provider: narrow in-memory chart abstraction
-|   `-- matplotlib_svg_chart_renderer.py  # Provider: Matplotlib SVG implementation
-|-- services/
-|   |-- __init__.py
-|   `-- snapshot_comparison.py  # Service: snapshot totals and deltas
-`-- transformers/
-    |-- __init__.py
-    |-- forum_ready_markdown.py  # Transformer: comparison evidence to Markdown
-    |-- manual_csv.py  # Transformer: manual CSV text to Models
-    `-- token_delta_chart.py  # Transformer: comparison Model to generic chart Model
-```
-
-No other architectural role is implemented yet, so the repository does not contain empty role folders or projects. New roles are added only when production responsibilities require them.
-
-## Render the checked-in chart sample
-
-The checked-in [token-delta SVG](examples/manual-context-usage.token-delta.svg) is generated from [the sanitized manual CSV sample](examples/manual-context-usage.sample.csv). It shows the alphabetically ordered sources, `comparison minus baseline` token deltas, both explicit snapshot IDs, and a token axis.
-
-Regenerate it locally with:
+### 1. Restore the locked environment
 
 ```powershell
-uv run python scripts/generate_sample_chart.py
+uv sync --locked --all-groups
 ```
 
-The script reads `snapshot-001` as the baseline and `snapshot-002` as the comparison, then writes only the checked-in sample artifact. Production chart rendering returns in-memory SVG bytes; this sample-generation script is the intentionally separate local filesystem boundary.
+Expected result: the command exits with status 0 and restores the runtime, test, and development tools from `uv.lock`. The package is not installed with a separate `pip` command.
 
-## Run the local application
-
-After installing the locked development environment, start the local shell with:
+### 2. Run the local application
 
 ```powershell
 uv run codex-context-monitoring
 ```
 
-The MVP accepts session-usage data only when it is manually supplied by a later workflow. Automatic collection from Codex Desktop or Codex CLI is explicitly out of scope. The shell does not read local Codex files, connect to a remote service, or persist data.
+Expected output:
 
-## Development
+```text
+Codex Context Monitoring is ready.
+Session data must be supplied manually; automatic Codex Desktop and CLI collection is out of scope for this MVP.
+```
 
-Python 3.14 or newer and [uv](https://docs.astral.sh/uv/) are required.
+The shell exits after printing its readiness message; it does not perform automatic collection.
+
+### 3. Run the automated unit-test suite
 
 ```powershell
-uv sync --locked --all-groups
+uv run coverage run -m pytest tests/unit -m "not integration"
+```
+
+Expected result: all unit tests pass. The current suite reports `59 passed`. Integration tests are opt-in and are not part of this command or CI.
+
+### 4. Validate and parse the checked-in sample CSV
+
+The command below uses the production parser against [`examples/manual-context-usage.sample.csv`](examples/manual-context-usage.sample.csv):
+
+```powershell
+@'
+from pathlib import Path
+from codex_context_monitoring.transformers.manual_csv import parse_manual_csv
+
+path = Path("examples/manual-context-usage.sample.csv")
+observations = parse_manual_csv(path.read_text(encoding="utf-8"))
+print(
+    f"Validated {path.as_posix()}: "
+    f"{len(observations)} observations across "
+    f"{len({observation.snapshot_id for observation in observations})} snapshots."
+)
+'@ | uv run python -
+```
+
+Expected output:
+
+```text
+Validated examples/manual-context-usage.sample.csv: 6 observations across 2 snapshots.
+```
+
+### 5. Compare the sample snapshots
+
+This compares `snapshot-001` (baseline) with `snapshot-002` (comparison) from the same parsed observations:
+
+```powershell
+@'
+from pathlib import Path
+from codex_context_monitoring.services.snapshot_comparison import compare_snapshots
+from codex_context_monitoring.transformers.manual_csv import parse_manual_csv
+
+path = Path("examples/manual-context-usage.sample.csv")
+observations = parse_manual_csv(path.read_text(encoding="utf-8"))
+comparison = compare_snapshots(observations, "snapshot-001", "snapshot-002")
+print(f"Compared {comparison.baseline_snapshot_id} with {comparison.comparison_snapshot_id}.")
+print(
+    "\n".join(
+        f"{source.source}: {source.delta_tokens:+,} tokens"
+        for source in comparison.sources
+    )
+)
+print(f"Overall delta: {comparison.delta_total_tokens:+,} tokens")
+'@ | uv run python -
+```
+
+Expected output:
+
+```text
+Compared snapshot-001 with snapshot-002.
+System instructions: +780 tokens
+Tool output: +830 tokens
+User conversation: +850 tokens
+Overall delta: +2,460 tokens
+```
+
+### 6. Reproduce the checked-in sample chart
+
+```powershell
+uv run python scripts/generate_sample_chart.py
+```
+
+Expected result: no console output; the command regenerates [`examples/manual-context-usage.token-delta.svg`](examples/manual-context-usage.token-delta.svg) from the sample CSV and the same `snapshot-001` versus `snapshot-002` comparison. The chart shows the source deltas above. Matplotlib 3.11.x is the static SVG renderer; see the [charting library decision](docs/mvp-07-charting-library-decision.md).
+
+### 7. Generate the forum-ready Markdown export
+
+This command repeats the parse and comparison, carries the sample's snapshot metadata into the export, and writes a local Markdown file beside the sample data:
+
+```powershell
+@'
+from pathlib import Path
+
+from codex_context_monitoring.services.snapshot_comparison import compare_snapshots
+from codex_context_monitoring.transformers.forum_ready_markdown import (
+    ForumReadyMarkdownInput,
+    SnapshotMetadata,
+    to_forum_ready_markdown,
+)
+from codex_context_monitoring.transformers.manual_csv import parse_manual_csv
+
+input_path = Path("examples/manual-context-usage.sample.csv")
+observations = parse_manual_csv(input_path.read_text(encoding="utf-8"))
+comparison = compare_snapshots(observations, "snapshot-001", "snapshot-002")
+
+
+def metadata_for(snapshot_id: str) -> SnapshotMetadata:
+    rows = tuple(item for item in observations if item.snapshot_id == snapshot_id)
+    return SnapshotMetadata(
+        surfaces=tuple(item.surface for item in rows),
+        captured_at=next(
+            (item.captured_at for item in rows if item.captured_at is not None),
+            None,
+        ),
+        context_limit=next(
+            (item.context_limit for item in rows if item.context_limit is not None),
+            None,
+        ),
+    )
+
+
+export = ForumReadyMarkdownInput(
+    comparison=comparison,
+    baseline_metadata=metadata_for("snapshot-001"),
+    comparison_metadata=metadata_for("snapshot-002"),
+    chart_reference="examples/manual-context-usage.token-delta.svg",
+)
+output_path = Path("examples/manual-context-usage.forum-ready.md")
+output_path.write_text(to_forum_ready_markdown(export), encoding="utf-8")
+print(f"Wrote {output_path.as_posix()}.")
+'@ | uv run python -
+```
+
+Expected output:
+
+```text
+Wrote examples/manual-context-usage.forum-ready.md.
+```
+
+The generated file contains the comparison evidence, including overall totals of `25750` baseline tokens, `28210` comparison tokens, and `2460` delta tokens. It is a local export and is not a checked-in fixture.
+
+## Create a new manual CSV
+
+Copy the sanitized sample, then edit its rows without changing the header or schema:
+
+```powershell
+Copy-Item examples/manual-context-usage.sample.csv examples/my-manual-context-usage.csv
+```
+
+Keep this header exactly as written:
+
+```text
+snapshot_id,surface,source,tokens,captured_at,context_limit,notes
+```
+
+Use one row per source within a named snapshot. `snapshot_id`, `surface`, `source`, and non-negative integer `tokens` are required. Leave `captured_at`, `context_limit`, or `notes` blank when unknown; do not invent values. The complete validation, quoting, normalization, and optional-field rules are in the [manual CSV input contract](docs/manual-csv-input.md).
+
+## Architecture role map
+
+The map below lists only roles represented by current production symbols. It follows the Linear project resource [Software Layer Roles and Dependency Policy, R0S-ARCH-LAYERS 2.0.0-rc.2](https://linear.app/rule0softworks/document/software-layer-roles-and-dependency-policy-ddc03ba215a5).
+
+| Role | Production symbols | Responsibility | Permitted dependency direction |
+| --- | --- | --- | --- |
+| Controller | `src/codex_context_monitoring/app.py:main` | Runs the local CLI entry point and returns its exit status. | No current role imports; may depend only on Service, Transformer, Provider, Contract, or Model roles. |
+| Model | `src/codex_context_monitoring/models.py`: `ContextUsageObservation`, `SourceUsageComparison`, `SnapshotUsageComparison`; `src/codex_context_monitoring/chart_models.py`: `Bar`, `BarChart`, `RenderedChart` | Holds immutable, behavior-free usage and chart data. | No behavior-role dependencies. |
+| Service | `src/codex_context_monitoring/services/snapshot_comparison.py:compare_snapshots`; `UnknownSnapshotError` | Aggregates two explicit snapshots into per-source and overall totals and deltas. | Application Models only. |
+| Transformer | `src/codex_context_monitoring/transformers/manual_csv.py:parse_manual_csv`, `ValidationIssue`, `ManualCsvValidationError`; `token_delta_chart.to_token_delta_chart`; `forum_ready_markdown.SnapshotMetadata`, `ForumReadyMarkdownInput`, `to_forum_ready_markdown` | Validates and converts in-memory input, comparison data, chart data, and Markdown output without external I/O. | Application Models, including provider-owned chart Models; no Service, Controller, or external I/O. |
+| Provider | `src/codex_context_monitoring/__init__.py:__version__`; `src/codex_context_monitoring/providers/chart_renderer.py:ChartRenderer`; `src/codex_context_monitoring/providers/matplotlib_svg_chart_renderer.py:MatplotlibSvgChartRenderer` | Exposes package metadata and isolates the Matplotlib SVG implementation behind the chart capability. | Provider-owned chart Models and the isolated Matplotlib rendering capability; no Service or Controller imports. |
+
+Models have no behavior-role dependencies. Services use application Models; Transformers use Models and provider-owned chart Models; the chart Provider uses its chart Models and Matplotlib. No Connector, persistence, or automatic-collection role exists in this MVP.
+
+## Development checks
+
+Run the complete local quality gate after changes:
+
+```powershell
 uv run ruff format --check .
 uv run ruff check .
 uv run ty check
@@ -88,28 +219,15 @@ uv run coverage run -m pytest tests/unit -m "not integration"
 uv run coverage report
 uv run coverage xml
 uv build
+uv lock --check
 ```
 
-CI runs unit tests on Ubuntu and Windows. Ruff, ty, and package-build checks run on Ubuntu.
-
-## Testing
-
-Unit tests live under `tests/unit/`. They use pytest-mock to replace external dependencies and exercise the system under test in isolation. coverage.py measures branch coverage and enforces the configured 100% unit-test threshold. The default pytest configuration discovers unit tests only and excludes the `integration` marker.
-
-Integration tests live under `tests/integration/`, use `@pytest.mark.integration`, and are always opt-in. When integration tests are present, run them locally with:
+Integration tests, when present, are opt-in:
 
 ```powershell
 uv run pytest tests/integration -m integration
 ```
 
-Integration tests never run in CI.
-
-CI uploads the unit-test `coverage.xml` report to Codecov using the user-managed `CODECOV_TOKEN` repository secret.
-
 ## Releases
 
-[Release Please](https://github.com/googleapis/release-please) uses Conventional Commits on `main` to maintain a release pull request containing the version bump and changelog. Merging that pull request creates a `v`-prefixed Git tag and a GitHub Release.
-
-The project is not published to PyPI.
-
-Release Please requires a `RELEASE_PLEASE_TOKEN` repository secret so its release pull requests can trigger the required GitHub Actions workflows.
+[Release Please](https://github.com/googleapis/release-please) uses Conventional Commits on `main` to maintain the release pull request, version bump, changelog, tag, and GitHub Release. The project is not published to PyPI.
