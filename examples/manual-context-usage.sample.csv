@@ -1,0 +1,7 @@
+snapshot_id,surface,source,tokens,captured_at,context_limit,notes
+snapshot-001,Codex Desktop,System instructions,14320,2026-08-30T14:00:00Z,114688,Synthetic baseline observation
+snapshot-001,Codex Desktop,User conversation,8250,2026-08-30T14:00:00Z,114688,
+snapshot-001,Codex Desktop,Tool output,3180,,,Synthetic row with unknown optional values
+snapshot-002,Codex CLI,System instructions,15100,2026-08-30T15:00:00Z,114688,Synthetic follow-up observation
+snapshot-002,Codex CLI,User conversation,9100,2026-08-30T15:00:00Z,114688,
+snapshot-002,Codex CLI,Tool output,4010,2026-08-30T15:00:00Z,114688,Synthetic example
