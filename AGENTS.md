@@ -18,6 +18,7 @@
 ## Architecture
 
 - software layering and architecture approaches are defined in https://linear.app/rule0softworks/document/software-layer-roles-and-dependency-policy-ddc03ba215a5
+- The README role map records the current boundaries: startup wiring, CLI Controller, comparison Services, pure Transformers, chart Provider, experiment-file Gateway, and filesystem Connector. Keep cross-role collaborators injected through application-owned abstractions.
 
 ## Setup
 
@@ -41,6 +42,8 @@ Use test-driven development for behavior changes:
 4. Run the focused test and then the full quality gate.
 
 Keep package code in `src/codex_context_monitoring/`. Keep tests outside the package in `tests/`. Add abstractions only when current behavior requires them.
+
+The manual controlled-comparison command is `uv run codex-context-monitoring compare experiment.txt`. It exports sibling SVG and Markdown files and must never overwrite either existing output. Use only synthetic inputs for agent validation; follow the README collection protocol for user-managed experiments.
 
 ## Issue Tracking
 
