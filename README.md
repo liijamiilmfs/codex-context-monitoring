@@ -222,3 +222,10 @@ uv run pytest tests/integration -m integration
 ## Releases
 
 [Release Please](https://github.com/googleapis/release-please) uses Conventional Commits on `main` to maintain the release pull request, version bump, changelog, tag, and GitHub Release. The project is not published to PyPI.
+
+Release notes use Release Please's `github` changelog type. GitHub generates one
+entry per merged pull request, so a feature commit and its merge commit do not
+produce duplicate entries. Merge commits remain supported; Conventional Commits
+still determine version bumps. Regenerate notes through this configured generator
+instead of editing out duplicate lines by hand. The release workflow runs `uv lock`
+after version updates so the project version in `uv.lock` stays synchronized.

@@ -111,6 +111,7 @@ Build artifacts are local validation output and must remain uncommitted. This pr
 - CodeQL must analyze Python with the security-and-quality query suite.
 - Dependabot must update the `uv` ecosystem and pinned GitHub Actions.
 - Release Please must manage release pull requests, tags, and GitHub Releases only.
+- Keep merge commits supported. Use Release Please's `github` changelog type so each merged pull request appears once; do not deduplicate generated notes by hand. Conventional Commits still determine version bumps.
 - Keep current implementation and release-status snapshots in the README `Current state` section, not in this file.
 
 When changing GitHub Actions:
