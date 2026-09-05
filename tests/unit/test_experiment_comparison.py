@@ -139,14 +139,31 @@ def test_chart_has_two_average_bars_and_difference_label(experiment_text: str) -
     assert chart.value_axis_label == "Average tokens used"
 
 
-def test_exact_fractional_results_are_not_silently_rounded(
+@pytest.mark.parametrize(
+    ("used", "average", "difference"),
+    [
+        (18701, "18,800.33", "8,700.33"),
+        (18703, "18,801", "8,701"),
+        (18702, "18,800.67", "8,700.67"),
+    ],
+)
+def test_fractional_results_use_readable_decimal_labels(
     experiment_text: str,
+    used: int,
+    average: str,
+    difference: str,
 ) -> None:
     experiment = parse_experiment(
-        experiment_text.replace("18.7K", "18701").replace("10K", "10000")
+        experiment_text.replace("18.7K", str(used)).replace("10K", "10000")
     )
     result = compare_experiment(experiment)
     chart = to_experiment_chart(result)
-    assert chart.bars[0].value_label == "56,401/3"
-    assert "26,101/3 tokens" in chart.subtitle
-    assert "approximate" not in to_experiment_markdown(result, "chart.svg")
+    assert chart.bars[0].value_label == average
+    assert f"{difference} tokens" in chart.subtitle
+    markdown = to_experiment_markdown(result, "chart.svg")
+    assert f"| Desktop | 3 | {average} |" in markdown
+    assert (
+        "Fractional token results are rounded to two decimal places for display."
+        in markdown
+    )
+    assert "approximate" not in markdown

@@ -60,8 +60,9 @@ is Desktop average minus CLI average, in tokens. There is no combined average or
 percentage comparison. These totals do not identify what consumed context or
 explain why surfaces differ.
 
-Calculations retain exact rational arithmetic. Exact fractional averages are
-shown as fractions so they are not silently rounded. If a group's tokens-used
+Calculations retain exact rational arithmetic. Fractional averages and differences
+are displayed as decimals rounded to two places, with a note in the report.
+Whole-number results are displayed without decimal places. If a group's tokens-used
 input includes K notation, its statistics are conservatively labeled approximate;
 the average difference is approximate if either group is approximate. Approximate
 results are displayed to whole tokens, without implying added measurement

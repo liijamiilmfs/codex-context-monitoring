@@ -24,7 +24,7 @@ def _number(value: int | Fraction, approximate: bool = False) -> str:
     value = Fraction(value)
     if value.denominator == 1:
         return f"{value.numerator:,}"
-    return f"{value.numerator:,}/{value.denominator:,}"
+    return f"{value:,.2f}"
 
 
 def _difference(result: ExperimentComparison) -> str:
@@ -36,7 +36,7 @@ def _difference(result: ExperimentComparison) -> str:
 
 
 def to_experiment_chart(result: ExperimentComparison) -> BarChart:
-    """Two average bars; numeric labels retain exact or approximate meaning."""
+    """Two average bars with decimal labels and input uncertainty preserved."""
     return BarChart(
         title="Desktop and CLI context usage",
         subtitle=_difference(result),
@@ -83,7 +83,15 @@ def to_experiment_markdown(result: ExperimentComparison, chart_filename: str) ->
         lines.append(
             f"| {name} | {stats.count} | {_number(stats.average, stats.approximate)} | {_number(stats.minimum, stats.approximate)} | {_number(stats.maximum, stats.approximate)} |"
         )
-    lines.extend(("", _difference(result), ""))
+    lines.extend(
+        (
+            "",
+            _difference(result),
+            "",
+            "Fractional token results are rounded to two decimal places for display.",
+            "",
+        )
+    )
     if result.difference_approximate:
         lines.extend(
             (
