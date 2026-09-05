@@ -98,7 +98,7 @@ def test_minimal_report_retains_all_readings_and_only_summary(
         "## Warnings",
         "## Chart",
     ]
-    assert "Synthetic comparison only." in markdown
+    assert r"Synthetic comparison only\." in markdown
     for item in result.experiment.desktop + result.experiment.cli:
         assert item.original in markdown
     assert "**Desktop**" in markdown and "**CLI**" in markdown
@@ -167,3 +167,29 @@ def test_fractional_results_use_readable_decimal_labels(
         in markdown
     )
     assert "approximate" not in markdown
+
+
+@pytest.mark.parametrize(
+    ("summary", "literal"),
+    [
+        ("## Additional results", r"\#\# Additional results"),
+        ("<script>example</script>", r"\<script\>example\<\/script\>"),
+        (
+            "[label](https://example.invalid)",
+            r"\[label\]\(https\:\/\/example\.invalid\)",
+        ),
+        ("``` *bold* &copy;", r"\`\`\` \*bold\* \&copy\;"),
+        ("1. item | ~text~", r"1\. item \| \~text\~"),
+        (r"\## heading", r"\\\#\# heading"),
+    ],
+)
+def test_summary_is_literal_markdown(
+    experiment_text: str, summary: str, literal: str
+) -> None:
+    experiment = parse_experiment(
+        experiment_text.replace("Synthetic comparison only.", summary)
+    )
+    markdown = to_experiment_markdown(compare_experiment(experiment), "chart.svg")
+    assert markdown.splitlines()[2] == literal
+    assert len([line for line in markdown.splitlines() if line.startswith("## ")]) == 5
+    assert experiment.metadata.summary == summary

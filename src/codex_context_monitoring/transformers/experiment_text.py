@@ -30,7 +30,8 @@ _INVALID_CHARACTER = re.compile(
     r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]"
 )
 _COUNT = re.compile(r"(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+(?:\.[0-9]{1,3})?K)")
-_READING = re.compile(r"(.+)% left \((.*) used / (.+)\)")
+# Each field stops at its delimiter so malformed lines cannot trigger nested retries.
+_READING = re.compile(r"([^%]+)% left \(([^/]*) used / ([^/)]+)\)")
 
 
 class ExperimentValidationError(ValueError):

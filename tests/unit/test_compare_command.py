@@ -106,3 +106,19 @@ def test_entrypoint_uses_process_arguments(boundaries, mocker) -> None:
 def test_path_without_filename_reports_error(boundaries, capsys) -> None:
     assert main(["compare", "."]) == 1
     assert "filename" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("suffix", [".md", ".svg", ".MD", ".SVG"])
+def test_report_suffix_input_has_distinct_output_paths(
+    boundaries, capsys, suffix: str
+) -> None:
+    check, read, _, write = boundaries
+    input_path = Path("synthetic/run" + suffix)
+    paths = (Path(str(input_path) + ".svg"), Path(str(input_path) + ".md"))
+    assert main(["compare", str(input_path)]) == 0
+    check.assert_called_once_with(paths)
+    read.assert_called_once_with(input_path, 4194304)
+    assert write.call_args.args[0] == paths
+    assert input_path not in paths
+    assert f"./run{suffix}.svg" in write.call_args.args[1][1].decode("utf-8")
+    assert capsys.readouterr().err == ""

@@ -2,14 +2,24 @@
 
 from fractions import Fraction
 from pathlib import Path
+from string import punctuation
 from urllib.parse import quote
 
 from codex_context_monitoring.chart_models import Bar, BarChart
 from codex_context_monitoring.experiment_models import ExperimentComparison
 
+_MARKDOWN_ESCAPES = str.maketrans(
+    {character: "\\" + character for character in punctuation}
+)
+
 
 def report_paths(input_path: Path) -> tuple[Path, Path]:
     """Derive sibling output names without accessing the filesystem."""
+    if input_path.suffix.lower() in {".svg", ".md"}:
+        return (
+            input_path.with_name(input_path.name + ".svg"),
+            input_path.with_name(input_path.name + ".md"),
+        )
     return input_path.with_suffix(".svg"), input_path.with_suffix(".md")
 
 
@@ -53,11 +63,11 @@ def to_experiment_chart(result: ExperimentComparison) -> BarChart:
 
 
 def to_experiment_markdown(result: ExperimentComparison, chart_filename: str) -> str:
-    """Copy the short summary and original readings; exclude other setup metadata."""
+    """Render the summary literally and preserve original readings."""
     lines = [
         "## Test summary",
         "",
-        result.experiment.metadata.summary,
+        result.experiment.metadata.summary.translate(_MARKDOWN_ESCAPES),
         "",
         "## Individual readings",
         "",

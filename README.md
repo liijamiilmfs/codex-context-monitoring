@@ -33,6 +33,10 @@ This creates `experiment.svg` and `experiment.md` beside the input. The chart
 shows the Desktop and CLI averages and **Desktop average minus CLI average**
 in tokens. The report includes only the short summary, original readings,
 statistics, warnings, and a relative chart link. Keep both outputs together.
+The summary displays as literal text; Markdown punctuation is escaped in the report.
+Input filenames may use any suffix. For `.md` or `.svg` inputs (case-insensitive),
+output suffixes are appended to the full name: `run.md` produces `run.md.svg` and
+`run.md.md`, keeping both outputs distinct from the input.
 
 If either output exists, the command returns an error and leaves both untouched.
 There is no overwrite option. Input errors produce no reports. Read, render, and

@@ -18,7 +18,7 @@ The eight required, nonblank `name = value` fields are:
 | `desktop_version` | Operator-supplied Desktop version |
 | `cli_version` | Operator-supplied CLI version |
 | `conditions` | Sanitized description of the shared, unchanged setup |
-| `summary` | Short text copied into the report; full metadata stays in the input |
+| `summary` | Short text rendered literally in the report; full metadata stays in the input |
 
 Names and model/settings are case-sensitive. Metadata order is flexible.
 Values occupy one line; an equals sign within a value is literal.
@@ -78,3 +78,9 @@ The Markdown has exactly five sections: test summary, individual readings groupe
 by surface, summary statistics, warnings, and a relative chart link. The SVG has
 two average bars and the labeled token difference. For collection steps and the
 command, see the [README](../README.md#controlled-comparison-mvp).
+
+Summary punctuation is escaped in Markdown so imported headings, links, HTML,
+and other formatting display as literal text. The parsed summary remains unchanged.
+Input filenames may have any suffix. An input ending in `.md` or `.svg`, regardless
+of case, receives appended output suffixes: `run.svg.svg` and `run.svg.md` for
+`run.svg`. Other inputs retain the usual suffix replacement.

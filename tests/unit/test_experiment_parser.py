@@ -158,3 +158,22 @@ def test_reading_limit(experiment_text: str) -> None:
     text = experiment_text + "Context window: 100% left (0 used / 258K)\n" * 9995
     with pytest.raises(ExperimentValidationError, match="10000"):
         parse_experiment(text)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "1% left (2 used / " * 200 + "3)",
+        "1% left (2 used / 3 used / 4)",
+        "1% left (2 used / 3) trailing)",
+    ],
+    ids=["repeated-fragments", "repeated-separator", "trailing-parenthesis"],
+)
+def test_rejects_repeated_reading_delimiters(
+    experiment_text: str, payload: str
+) -> None:
+    text = experiment_text.replace(
+        "Context: 93% left (18.7K used / 258K)", "Context: " + payload
+    )
+    with pytest.raises(ExperimentValidationError, match="line 12: expected Context"):
+        parse_experiment(text)
