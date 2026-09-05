@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.0 (2026-09-05)
+
+## What's Changed
+* chore: getting dev in line with main  by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/8
+* Update CI workflow to include 'dev' branch by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/14
+* feat: add local application shell by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/13
+* docs: add architecture role map by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/15
+* feat: define manual CSV input contract by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/16
+* feat: parse manual CSV into typed models by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/18
+* feat: normalize source labels and missing optional fields by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/19
+* chore(deps): bump googleapis/release-please-action from 4.4.1 to 5.0.0 by @dependabot[bot] in https://github.com/liijamiilmfs/codex-context-monitoring/pull/21
+* chore(deps): bump codecov/codecov-action from 5.5.5 to 7.0.0 by @dependabot[bot] in https://github.com/liijamiilmfs/codex-context-monitoring/pull/20
+* feat: compare snapshot token usage by source by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/22
+* docs: select MVP charting library by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/23
+* feat: render token delta chart by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/24
+* fix: address token delta chart review findings by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/25
+* feat: add forum-ready Markdown comparison export by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/26
+* docs: update README with local proof of concept workflow and usage instructions by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/27
+* fix: address PR #28 CSV validation and rendering findings by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/29
+* chore: promote dev into main by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/28
+
+
+**Full Changelog**: https://github.com/liijamiilmfs/codex-context-monitoring/compare/v0.1.0...v0.2.0
+
 ## 0.1.0 (2026-08-30)
 
 
