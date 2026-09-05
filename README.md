@@ -165,6 +165,8 @@ The generated file contains the comparison evidence, including overall totals of
 The metadata transformer rejects conflicting nonblank timestamps or context
 limits within a snapshot before the export is written. Missing values stay
 missing; duplicate agreed values are accepted regardless of row order.
+Timestamp agreement includes the parsed date, time, and UTC offset: equal
+instants expressed with different offsets are reported as conflicting values.
 
 ## Create a new manual CSV
 

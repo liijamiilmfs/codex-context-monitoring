@@ -66,6 +66,18 @@ def test_metadata_preserves_missing_optional_values() -> None:
     )
 
 
+def test_metadata_rejects_equal_instants_with_different_offsets() -> None:
+    observation = _observation()
+    changed = replace(
+        observation,
+        captured_at=datetime.fromisoformat("2026-08-30T15:00:00+01:00"),
+    )
+
+    for rows in [(observation, changed), (changed, observation)]:
+        with pytest.raises(ValueError, match="conflicting captured_at"):
+            to_snapshot_metadata(rows, "snapshot-001")
+
+
 def test_metadata_rejects_unknown_snapshot() -> None:
     with pytest.raises(ValueError, match="no observations"):
         to_snapshot_metadata([_observation()], "unknown")

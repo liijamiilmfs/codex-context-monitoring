@@ -374,6 +374,27 @@ def test_parse_manual_csv_bounds_header_fields() -> None:
     )
 
 
+@pytest.mark.parametrize("limit", ["field", "rows"])
+def test_parse_manual_csv_preserves_earlier_issues_at_a_limit(limit: str) -> None:
+    invalid_rows = "snapshot,Codex CLI,Tool,-1,,,\nmissing,columns\n"
+    valid_row = "snapshot,Codex CLI,Tool,1,,,\n"
+    if limit == "field":
+        later_rows = "snapshot,Codex CLI,Tool,1,,," + "n" * 131_073 + "\n"
+        terminal_issue = (4, "csv", "field_too_large")
+    else:
+        later_rows = valid_row * 9_999
+        terminal_issue = (10_002, "csv", "too_many_rows")
+
+    with pytest.raises(ManualCsvValidationError) as caught:
+        parse_manual_csv(HEADER + invalid_rows + later_rows)
+
+    assert [(issue.row, issue.field, issue.code) for issue in caught.value.issues] == [
+        (2, "tokens", "negative_integer"),
+        (3, "row", "wrong_column_count"),
+        terminal_issue,
+    ]
+
+
 def test_parse_manual_csv_translates_reader_errors_and_restores_field_limit(
     mocker: MockerFixture,
 ) -> None:

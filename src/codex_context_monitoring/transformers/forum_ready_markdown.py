@@ -37,7 +37,11 @@ def to_snapshot_metadata(
     rows = tuple(item for item in observations if item.snapshot_id == snapshot_id)
     if not rows:
         raise ValueError("snapshot has no observations")
-    timestamps = {item.captured_at for item in rows if item.captured_at is not None}
+    timestamps = {
+        item.captured_at.isoformat(): item.captured_at
+        for item in rows
+        if item.captured_at is not None
+    }
     limits = {item.context_limit for item in rows if item.context_limit is not None}
     if len(timestamps) > 1:
         raise ValueError("conflicting captured_at values in snapshot")
@@ -45,7 +49,7 @@ def to_snapshot_metadata(
         raise ValueError("conflicting context_limit values in snapshot")
     return SnapshotMetadata(
         surfaces=tuple(sorted({item.surface for item in rows})),
-        captured_at=next(iter(timestamps), None),
+        captured_at=next(iter(timestamps.values()), None),
         context_limit=next(iter(limits), None),
     )
 

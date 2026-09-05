@@ -124,7 +124,9 @@ def _parse_manual_csv(csv_text: str) -> tuple[ContextUsageObservation, ...]:
     except StopIteration:
         _raise_invalid_header()
     except csv.Error as error:
-        _raise_csv_error(error, reader.line_num)
+        raise ManualCsvValidationError(
+            [_csv_error_issue(error, reader.line_num)]
+        ) from error
 
     if tuple(header) != EXPECTED_COLUMNS:
         missing_columns = [
@@ -150,20 +152,20 @@ def _parse_manual_csv(csv_text: str) -> tuple[ContextUsageObservation, ...]:
         except StopIteration:
             break
         except csv.Error as error:
-            _raise_csv_error(error, row_number)
+            issues.append(_csv_error_issue(error, row_number))
+            break
 
         record_count += 1
         if record_count > MAX_DATA_ROWS:
-            raise ManualCsvValidationError(
-                [
-                    ValidationIssue(
-                        row_number,
-                        "csv",
-                        "too_many_rows",
-                        f"document must contain at most {MAX_DATA_ROWS} data rows",
-                    )
-                ]
+            issues.append(
+                ValidationIssue(
+                    row_number,
+                    "csv",
+                    "too_many_rows",
+                    f"document must contain at most {MAX_DATA_ROWS} data rows",
+                )
             )
+            break
 
         if len(values) != len(EXPECTED_COLUMNS):
             issues.append(
@@ -366,16 +368,14 @@ def _raise_malformed_csv(row_number: int) -> NoReturn:
     )
 
 
-def _raise_csv_error(error: csv.Error, row_number: int) -> NoReturn:
+def _csv_error_issue(error: csv.Error, row_number: int) -> ValidationIssue:
     if str(error).startswith("field larger than field limit"):
-        raise ManualCsvValidationError(
-            [
-                ValidationIssue(
-                    max(row_number, 1),
-                    "csv",
-                    "field_too_large",
-                    f"each field must contain at most {MAX_FIELD_CHARACTERS} characters",
-                )
-            ]
+        return ValidationIssue(
+            max(row_number, 1),
+            "csv",
+            "field_too_large",
+            f"each field must contain at most {MAX_FIELD_CHARACTERS} characters",
         )
-    _raise_malformed_csv(row_number)
+    return ValidationIssue(
+        max(row_number, 1), "csv", "malformed_csv", "input is not well-formed CSV"
+    )
