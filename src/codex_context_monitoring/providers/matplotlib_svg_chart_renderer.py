@@ -35,7 +35,9 @@ def _figure_height(bar_count: int) -> float:
     )
 
 
-def _plot_values(values: tuple[int, ...]) -> tuple[tuple[int | float, ...], int | None]:
+def _plot_values(
+    values: tuple[int | float, ...],
+) -> tuple[tuple[int | float, ...], int | float | None]:
     maximum = max((abs(value) for value in values), default=0)
     if maximum <= _MAX_SAFE_COORDINATE:
         return values, None
@@ -47,14 +49,14 @@ def _plot_values(values: tuple[int, ...]) -> tuple[tuple[int | float, ...], int 
     return scaled_values, maximum
 
 
-def _format_value(value: int) -> str:
+def _format_value(value: int | float) -> str:
     if abs(value) <= _MAX_SAFE_COORDINATE:
         return f"{value:+,}"
     with localcontext(_DECIMAL_CONTEXT):
         return f"{Decimal(value):+.3E}"
 
 
-def _format_scaled_tick(position: float, maximum: int) -> str:
+def _format_scaled_tick(position: float, maximum: int | float) -> str:
     if position == 0:
         return "0"
     with localcontext(_DECIMAL_CONTEXT) as context:
@@ -81,6 +83,8 @@ class MatplotlibSvgChartRenderer:
             values = tuple(bar.value for bar in chart.bars)
             plot_values, scale_maximum = _plot_values(values)
             bars = axes.barh(positions, plot_values, color="#2672a8")
+            if any(bar.value_label is not None for bar in chart.bars):
+                axes.margins(x=0.2)
 
             axes.set_yticks(positions, labels=tuple(bar.label for bar in chart.bars))
             axes.invert_yaxis()
@@ -97,7 +101,14 @@ class MatplotlibSvgChartRenderer:
             axes.grid(axis="x", color="#d9d9d9", linewidth=0.8)
             axes.set_axisbelow(True)
             axes.bar_label(
-                bars, labels=tuple(_format_value(value) for value in values), padding=3
+                bars,
+                labels=tuple(
+                    bar.value_label
+                    if bar.value_label is not None
+                    else _format_value(bar.value)
+                    for bar in chart.bars
+                ),
+                padding=3,
             )
 
             output = BytesIO()

@@ -3,8 +3,11 @@ from xml.etree import ElementTree
 
 import pytest
 from matplotlib import rc_context, rcParams
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from pytest_mock import MockerFixture
 
 from codex_context_monitoring.chart_models import Bar, BarChart, RenderedChart
+from codex_context_monitoring.providers import matplotlib_svg_chart_renderer
 from codex_context_monitoring.providers.chart_renderer import ChartRenderer
 from codex_context_monitoring.providers.matplotlib_svg_chart_renderer import (
     MatplotlibSvgChartRenderer,
@@ -12,6 +15,33 @@ from codex_context_monitoring.providers.matplotlib_svg_chart_renderer import (
 
 SVG_NAMESPACE = "{http://www.w3.org/2000/svg}"
 XML_SPACE_ATTRIBUTE = "{http://www.w3.org/XML/1998/namespace}space"
+
+
+def test_comparison_value_labels_stay_inside_chart_frame(mocker: MockerFixture) -> None:
+    figure_spy = mocker.spy(matplotlib_svg_chart_renderer, "Figure")
+    chart = _chart_with_bars(
+        Bar("Desktop", 64001 / 3, "64,001/3"),
+        Bar("CLI", 15000, "approximate 15,000"),
+    )
+    MatplotlibSvgChartRenderer().render(chart)
+    figure = figure_spy.spy_return
+    canvas = FigureCanvasAgg(figure)
+    canvas.draw()
+    axes = figure.axes[0]
+    for label in axes.texts:
+        bounds = label.get_window_extent(canvas.get_renderer())
+        assert bounds.x0 >= axes.bbox.x0
+        assert bounds.x1 <= axes.bbox.x1
+
+
+def test_renderer_preserves_explicit_fractional_and_approximate_labels() -> None:
+    chart = _chart_with_bars(
+        Bar("Desktop", 101 / 3, "101/3"),
+        Bar("CLI", 18700.0, "approximate 18,700"),
+    )
+    result = MatplotlibSvgChartRenderer().render(chart)
+    assert b"101/3" in result.content
+    assert b"approximate 18,700" in result.content
 
 
 def _chart_with_bars(*bars: Bar) -> BarChart:

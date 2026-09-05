@@ -11,15 +11,73 @@
 A Python application for analyzing and visualizing session usage across Codex Desktop on Windows and Codex CLI.
 
 > [!IMPORTANT]
-> MVP input is manual-only. The app does not collect session data from Codex Desktop or Codex CLI, connect to a remote service, or persist data.
+> MVP input is manual-only. The app reads sanitized experiment files and writes local reports. It does not collect session data from Codex Desktop or Codex CLI or connect to a remote service.
 
 ## Current state
 
-The local MVP parses manual CSV into normalized observations, compares named snapshots, renders static SVG token-delta charts, and formats forum-ready Markdown. The checked-in sample workflow is reproducible; automated session ingestion, persistence, and Codex Desktop/CLI collection are not implemented.
+The controlled-comparison MVP reads one experiment file and generates a Matplotlib SVG and a five-section Markdown report. It compares Desktop and CLI token averages while preserving individual readings and rounded-value uncertainty. Luna, Sol, and Astra at Medium are supported. Collection is manual.
+
+The existing CSV/snapshot workflow is the completed **proof of concept (POC)** and remains available below. The [accepted ADR](https://linear.app/rule0softworks/document/adr-compare-controlled-desktop-and-cli-context-readings-aae4bc10842d) defines the controlled-comparison MVP; Linear owns its scope and acceptance criteria.
 
 CI, CodeQL, Dependabot, Codecov, and Release Please workflows are configured. Release Please manages version, changelog, tag, and GitHub Release updates; the package is not published to PyPI.
 
-## Local MVP workflow
+## Controlled-comparison MVP
+
+Restore the locked environment with `uv sync --locked --all-groups`, then run:
+
+```powershell
+uv run codex-context-monitoring compare experiment.txt
+```
+
+This creates `experiment.svg` and `experiment.md` beside the input. The chart
+shows the Desktop and CLI averages and **Desktop average minus CLI average**
+in tokens. The report includes only the short summary, original readings,
+statistics, warnings, and a relative chart link. Keep both outputs together.
+
+If either output exists, the command returns an error and leaves both untouched.
+There is no overwrite option. Input errors produce no reports. Read, render, and
+write failures return a nonzero exit status; created paths are printed only after
+both files are written. The writer reserves both names exclusively and attempts
+to remove newly created files if writing fails. An operating-system failure during
+cleanup can leave partial files, which the error message calls out.
+
+### Collect the 18 readings manually
+
+1. Make separate copies of the [Luna/Medium](examples/luna-medium.template.txt),
+   [Sol/Medium](examples/sol-medium.template.txt), and
+   [Astra/Medium](examples/astra-medium.template.txt) templates. Replace every
+   placeholder. Keep each model in its own experiment file.
+2. Use the same project in Desktop and the same project folder in CLI. Keep the
+   model, Medium reasoning, and all user-controlled configuration—including
+   skills, tools, and instructions—matched across surfaces and unchanged
+   throughout each experiment. Record the shared setup in `conditions`.
+3. For each model, start three fresh Desktop tasks and three fresh CLI sessions.
+   Send exactly `Reply with exactly OK. Do not inspect files or use tools.`
+   Once `OK` finishes, record `/status` immediately, before further messages or
+   actions. This is six readings per model, 18 across the three files.
+4. Copy only the context reading into its surface section. Do not include task
+   or session identifiers, account limits, credentials, private prompts, private
+   project names or paths, or unrelated status information. Matching live
+   settings and following the protocol are the operator's responsibility.
+5. Run `compare` for each completed file. Review the SVG and Markdown locally;
+   forum posting remains manual.
+
+The [input format](docs/controlled-experiment.md) documents all eight metadata
+fields, supported number formats, and validation limits. The short `summary`
+is copied into the report; the rest of the setup metadata stays in the input.
+
+To try only invented data:
+
+```powershell
+uv run codex-context-monitoring compare examples/controlled-comparison.sample.txt
+```
+
+This creates `examples/controlled-comparison.sample.svg` and
+`examples/controlled-comparison.sample.md`. A second run refuses to overwrite
+them. The sample is synthetic and makes no claim about actual model behavior.
+Real experiments are never collected or run in CI.
+
+## CSV proof-of-concept workflow
 
 Run these commands from the repository root. Python 3.14 or newer and [uv](https://docs.astral.sh/uv/) are required.
 
@@ -190,13 +248,29 @@ The map below lists only roles represented by current production symbols. It fol
 
 | Role | Production symbols | Responsibility | Permitted dependency direction |
 | --- | --- | --- | --- |
-| Controller | `src/codex_context_monitoring/app.py:main` | Runs the local CLI entry point and returns its exit status. | No current role imports; may depend only on Service, Transformer, Provider, Contract, or Model roles. |
+| Composition Root | `app.main` | Constructs collaborators and dispatches the CLI command. | Concrete role references for startup wiring only. |
+| Controller | `compare_command.CompareCommand` | Parses CLI arguments and prints success or failure. | Injected `CompareWorkflow` Service abstraction. |
 | Model | `src/codex_context_monitoring/models.py`: `ContextUsageObservation`, `SourceUsageComparison`, `SnapshotUsageComparison`; `src/codex_context_monitoring/chart_models.py`: `Bar`, `BarChart`, `RenderedChart` | Holds immutable, behavior-free usage and chart data. | No behavior-role dependencies. |
-| Service | `src/codex_context_monitoring/services/snapshot_comparison.py:compare_snapshots`; `UnknownSnapshotError` | Aggregates two explicit snapshots into per-source and overall totals and deltas. | Application Models only. |
+| Service | `services.snapshot_comparison`; `services.experiment_comparison`; `services.compare_workflow` | Calculates snapshot or controlled-experiment results and coordinates the comparison command. | Application Models, stateless Transformers, injected Gateway, chart Provider, and calculation function signature. |
 | Transformer | `src/codex_context_monitoring/transformers/manual_csv.py:parse_manual_csv`, `ValidationIssue`, `ManualCsvValidationError`; `token_delta_chart.to_token_delta_chart`; `forum_ready_markdown.SnapshotMetadata`, `ForumReadyMarkdownInput`, `to_snapshot_metadata`, `to_forum_ready_markdown` | Validates and converts in-memory input, comparison data, chart data, and Markdown output without external I/O. | Application Models, including provider-owned chart Models; no Service, Controller, or external I/O. |
 | Provider | `src/codex_context_monitoring/__init__.py:__version__`; `src/codex_context_monitoring/providers/chart_renderer.py:ChartRenderer`; `src/codex_context_monitoring/providers/matplotlib_svg_chart_renderer.py:MatplotlibSvgChartRenderer` | Exposes package metadata and isolates the Matplotlib SVG implementation behind the chart capability. | Provider-owned chart Models and the isolated Matplotlib rendering capability; no Service or Controller imports. |
+| Model | `experiment_models` | Immutable metadata, readings, rounding information, statistics, and warnings in one application representation family. | No behavior-role dependencies. |
+| Transformer | `transformers.experiment_text`; `transformers.experiment_report` | Parses text and maps results to chart data, Markdown, output names, and encoded content. | Application and provider-owned Models; pure operations only. |
+| Gateway | `gateways.experiment_files` | Exposes operator-owned input and report export in application terms. | Injected `FileConnector` abstraction and stateless report encoding Transformer. |
+| Connector | `connectors.file_connector`; `connectors.local_files` | Bounded UTF-8 reads, output checks, exclusive creation, and cleanup. | Standard-library filesystem facilities; no application decisions. |
 
-Models have no behavior-role dependencies. Services use application Models; Transformers use Models and provider-owned chart Models; the chart Provider uses its chart Models and Matplotlib. No Connector, persistence, or automatic-collection role exists in this MVP.
+The workflow is a Service coordinator with one explicitly injected calculation
+signature, `Callable[[Experiment], ExperimentComparison]`, supplied by
+`compare_experiment` at startup. This is the declared same-role composition.
+`ComparisonError` is workflow-owned support; parser validation errors and private
+helpers belong to their parsing Transformer. The chart family stays generic;
+only the chart Transformer translates application statistics into it.
+
+Filesystem I/O stays in the Connector. The Gateway does not own experiment state
+or a managed persistence lifecycle; files remain operator-owned inputs and
+exports. No database or automatic collection is introduced. Architecture
+direction is checked by code review; Ruff, ty, and unit tests check implementation
+quality, typing, and behavior.
 
 ## Development checks
 

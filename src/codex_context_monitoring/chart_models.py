@@ -8,7 +8,8 @@ class Bar:
     """One labeled numeric value in a generic bar chart."""
 
     label: str
-    value: int
+    value: int | float
+    value_label: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
