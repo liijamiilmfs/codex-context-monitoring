@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 (2026-09-05)
+
+## What's Changed
+* feat: compare controlled Desktop and CLI context readings by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/31
+* chore: promote dev to main by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/32
+
+
+**Full Changelog**: https://github.com/liijamiilmfs/codex-context-monitoring/compare/v0.2.0...v0.2.1
+
 ## 0.2.0 (2026-09-05)
 
 ## What's Changed
