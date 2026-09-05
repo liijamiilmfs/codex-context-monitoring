@@ -1,10 +1,14 @@
 """Transform a snapshot comparison into portable forum-ready Markdown."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from codex_context_monitoring.models import SnapshotUsageComparison
+from codex_context_monitoring.models import (
+    ContextUsageObservation,
+    SnapshotUsageComparison,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +28,26 @@ class ForumReadyMarkdownInput:
     baseline_metadata: SnapshotMetadata
     comparison_metadata: SnapshotMetadata
     chart_reference: str
+
+
+def to_snapshot_metadata(
+    observations: Iterable[ContextUsageObservation], snapshot_id: str
+) -> SnapshotMetadata:
+    """Map one snapshot's agreed metadata, rejecting conflicting nonblank values."""
+    rows = tuple(item for item in observations if item.snapshot_id == snapshot_id)
+    if not rows:
+        raise ValueError("snapshot has no observations")
+    timestamps = {item.captured_at for item in rows if item.captured_at is not None}
+    limits = {item.context_limit for item in rows if item.context_limit is not None}
+    if len(timestamps) > 1:
+        raise ValueError("conflicting captured_at values in snapshot")
+    if len(limits) > 1:
+        raise ValueError("conflicting context_limit values in snapshot")
+    return SnapshotMetadata(
+        surfaces=tuple(sorted({item.surface for item in rows})),
+        captured_at=next(iter(timestamps), None),
+        context_limit=next(iter(limits), None),
+    )
 
 
 def to_forum_ready_markdown(export: ForumReadyMarkdownInput) -> str:

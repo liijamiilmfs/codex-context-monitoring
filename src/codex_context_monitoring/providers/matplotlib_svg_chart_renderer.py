@@ -23,6 +23,7 @@ _RENDERER_RC_PARAMS.update(
     {
         "svg.fonttype": "none",
         "svg.hashsalt": "codex-context-monitoring",
+        "text.parse_math": False,
     }
 )
 

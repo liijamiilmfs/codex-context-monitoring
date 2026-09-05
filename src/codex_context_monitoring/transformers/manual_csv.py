@@ -2,11 +2,10 @@
 
 import csv
 import re
-import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from io import StringIO
 from threading import Lock
 from typing import NoReturn
@@ -40,6 +39,16 @@ SOURCE_LABEL_ALIASES = {
 INTEGER_PATTERN = re.compile(r"-?[0-9]+")
 VALID_QUOTED_FIELD_PATTERN = re.compile(r'(?<![^,\r\n])"(?:[^"]|"")*"(?=$|[,\r\n])')
 MAX_INTEGER_DIGITS = 4_300
+MAX_DOCUMENT_CHARACTERS = 1_048_576
+MAX_FIELD_CHARACTERS = 131_072
+MAX_DATA_ROWS = 10_000
+INVALID_XML_CHARACTER_PATTERN = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]"
+)
+TIMESTAMP_PATTERN = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:[.,][0-9]{1,6})?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])?"
+)
 _CSV_FIELD_LIMIT_LOCK = Lock()
 
 
@@ -67,21 +76,32 @@ class ManualCsvValidationError(ValueError):
 
 def parse_manual_csv(csv_text: str) -> tuple[ContextUsageObservation, ...]:
     """Parse complete in-memory CSV text or raise one aggregate validation error."""
+    if len(csv_text) > MAX_DOCUMENT_CHARACTERS:
+        raise ManualCsvValidationError(
+            [
+                ValidationIssue(
+                    1,
+                    "csv",
+                    "document_too_large",
+                    f"document must contain at most {MAX_DOCUMENT_CHARACTERS} characters",
+                )
+            ]
+        )
     csv_text = csv_text.removeprefix("\ufeff")
     invalid_quote_row = _find_invalid_quote_row(csv_text)
     if invalid_quote_row is not None:
         _raise_malformed_csv(invalid_quote_row)
 
-    with _allow_in_memory_field_sizes():
+    with _bounded_field_sizes():
         return _parse_manual_csv(csv_text)
 
 
 @contextmanager
-def _allow_in_memory_field_sizes() -> Iterator[None]:
+def _bounded_field_sizes() -> Iterator[None]:
     with _CSV_FIELD_LIMIT_LOCK:
         previous_limit = csv.field_size_limit()
         try:
-            csv.field_size_limit(sys.maxsize)
+            csv.field_size_limit(MAX_FIELD_CHARACTERS)
             yield
         finally:
             csv.field_size_limit(previous_limit)
@@ -103,8 +123,8 @@ def _parse_manual_csv(csv_text: str) -> tuple[ContextUsageObservation, ...]:
         header = next(reader)
     except StopIteration:
         _raise_invalid_header()
-    except csv.Error:  # pragma: no cover - defensive csv implementation fallback
-        _raise_malformed_csv(reader.line_num)
+    except csv.Error as error:
+        _raise_csv_error(error, reader.line_num)
 
     if tuple(header) != EXPECTED_COLUMNS:
         missing_columns = [
@@ -122,22 +142,28 @@ def _parse_manual_csv(csv_text: str) -> tuple[ContextUsageObservation, ...]:
 
     observations: list[ContextUsageObservation] = []
     issues: list[ValidationIssue] = []
+    record_count = 0
     while True:
         row_number = reader.line_num + 1
         try:
             values = next(reader)
         except StopIteration:
             break
-        except csv.Error:  # pragma: no cover - defensive csv implementation fallback
-            issues.append(
-                ValidationIssue(
-                    row=row_number,
-                    field="csv",
-                    code="malformed_csv",
-                    message="input is not well-formed CSV",
-                )
+        except csv.Error as error:
+            _raise_csv_error(error, row_number)
+
+        record_count += 1
+        if record_count > MAX_DATA_ROWS:
+            raise ManualCsvValidationError(
+                [
+                    ValidationIssue(
+                        row_number,
+                        "csv",
+                        "too_many_rows",
+                        f"document must contain at most {MAX_DATA_ROWS} data rows",
+                    )
+                ]
             )
-            break
 
         if len(values) != len(EXPECTED_COLUMNS):
             issues.append(
@@ -167,6 +193,17 @@ def _parse_row(
 ) -> tuple[ContextUsageObservation | None, list[ValidationIssue]]:
     row = dict(zip(EXPECTED_COLUMNS, values, strict=True))
     issues: list[ValidationIssue] = []
+
+    for field, value in row.items():
+        if INVALID_XML_CHARACTER_PATTERN.search(value):
+            issues.append(
+                ValidationIssue(
+                    row_number,
+                    field,
+                    "invalid_xml_character",
+                    "value contains a character prohibited by XML 1.0",
+                )
+            )
 
     for field in REQUIRED_TEXT_COLUMNS:
         if not row[field].strip():
@@ -248,32 +285,20 @@ def _parse_timestamp(
 ) -> datetime | None:
     if not value:
         return None
-    try:
-        date.fromisoformat(value)
-    except ValueError:
-        pass
-    else:
-        issues.append(
-            ValidationIssue(
-                row=row_number,
-                field="captured_at",
-                code="invalid_timestamp",
-                message="value must be an ISO 8601 timestamp or blank",
-            )
+    if TIMESTAMP_PATTERN.fullmatch(value):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            pass
+    issues.append(
+        ValidationIssue(
+            row=row_number,
+            field="captured_at",
+            code="invalid_timestamp",
+            message="value must be a documented ISO 8601 timestamp or blank",
         )
-        return None
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        issues.append(
-            ValidationIssue(
-                row=row_number,
-                field="captured_at",
-                code="invalid_timestamp",
-                message="value must be an ISO 8601 timestamp or blank",
-            )
-        )
-        return None
+    )
+    return None
 
 
 def _parse_context_limit(
@@ -339,3 +364,18 @@ def _raise_malformed_csv(row_number: int) -> NoReturn:
             )
         ]
     )
+
+
+def _raise_csv_error(error: csv.Error, row_number: int) -> NoReturn:
+    if str(error).startswith("field larger than field limit"):
+        raise ManualCsvValidationError(
+            [
+                ValidationIssue(
+                    max(row_number, 1),
+                    "csv",
+                    "field_too_large",
+                    f"each field must contain at most {MAX_FIELD_CHARACTERS} characters",
+                )
+            ]
+        )
+    _raise_malformed_csv(row_number)

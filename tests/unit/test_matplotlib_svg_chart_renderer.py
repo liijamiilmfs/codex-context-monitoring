@@ -1,6 +1,7 @@
 from decimal import ROUND_DOWN, ROUND_UP, localcontext
 from xml.etree import ElementTree
 
+import pytest
 from matplotlib import rc_context, rcParams
 
 from codex_context_monitoring.chart_models import Bar, BarChart, RenderedChart
@@ -162,3 +163,21 @@ def test_renderer_increases_figure_height_for_many_bars() -> None:
     short_height = float(short_root.attrib["height"].removesuffix("pt"))
     tall_height = float(tall_root.attrib["height"].removesuffix("pt"))
     assert tall_height > short_height
+
+
+@pytest.mark.parametrize("label", ["$Tool output$", r"$\unknown{broken}$"])
+def test_renderer_treats_all_chart_text_as_literal(label: str) -> None:
+    chart = BarChart(
+        title=label,
+        subtitle=label,
+        value_axis_label=label,
+        bars=(Bar(label=label, value=20),),
+    )
+
+    rendered = MatplotlibSvgChartRenderer().render(chart)
+
+    root = ElementTree.fromstring(rendered.content)
+    labels = [
+        "".join(element.itertext()) for element in root.iter(f"{SVG_NAMESPACE}text")
+    ]
+    assert labels.count(label) == 4
