@@ -1,0 +1,19 @@
+[experiment]
+date = YYYY-MM-DD
+model = Luna
+reasoning = Medium
+operating_system = <operating system>
+desktop_version = <Desktop version>
+cli_version = <CLI version>
+conditions = <sanitized shared project setup; unchanged model, reasoning, skills, tools, and instructions>
+summary = <short summary for the report>
+
+[desktop]
+<paste Context: reading after fresh Desktop run 1>
+<paste Context: reading after fresh Desktop run 2>
+<paste Context: reading after fresh Desktop run 3>
+
+[cli]
+<paste Context window: reading after fresh CLI run 1>
+<paste Context window: reading after fresh CLI run 2>
+<paste Context window: reading after fresh CLI run 3>
