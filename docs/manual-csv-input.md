@@ -26,6 +26,29 @@ newlines. Required values must not be blank. An empty optional field means that
 the value was not supplied; consumers must preserve that distinction and must
 not invent a default value.
 
+## Input limits and text safety
+
+The parser accepts at most 1,048,576 Unicode characters per document (including
+any leading byte-order mark), 131,072 decoded characters per field, and 10,000
+data records. A quoted multiline record counts once. Larger inputs produce a
+clear validation error; the document limit is checked before quote scanning.
+This in-memory API does not bound the caller's initial file read.
+
+All fields must contain only XML 1.0 characters so imported labels can be used
+in SVG output. Tab, carriage return, newline, and valid Unicode text are allowed;
+prohibited controls, lone surrogates, U+FFFE, and U+FFFF are rejected with the row
+and field identified. Labels containing dollar signs render literally.
+
+## Capture timestamps
+
+Nonblank timestamps use `YYYY-MM-DDTHH:MM:SS`, optionally followed by a fraction
+of one to six digits (introduced by `.` or `,`) and `Z` or a `+HH:MM`/`-HH:MM`
+offset. Calendar dates, times, and offsets must be valid. Examples:
+`2026-08-30T14:00:00Z` and `2026-08-30T14:00:00.123456+05:30`.
+Other date/time separators, date-only values, basic unseparated forms, and
+fractions that would lose precision are rejected. A comma fraction needs CSV
+quoting, just like any other field containing a comma.
+
 ## Label normalization and traceability
 
 The input `surface` and `source` columns are raw operator-provided labels. In the
