@@ -305,5 +305,26 @@ Release notes use Release Please's `github` changelog type. GitHub generates one
 entry per merged pull request, so a feature commit and its merge commit do not
 produce duplicate entries. Merge commits remain supported; Conventional Commits
 still determine version bumps. Regenerate notes through this configured generator
-instead of editing out duplicate lines by hand. The release workflow runs `uv lock`
-after version updates so the project version in `uv.lock` stays synchronized.
+instead of editing out duplicate lines by hand. Release Please updates the root
+package version in `uv.lock` in the same commit as `pyproject.toml` and the release
+manifest. The lockfile entry is selected by package name, leaving dependency
+versions unchanged. CI still requires a locked installation.
+The selector uses `name.value` because Release Please 17.6.0 wraps TOML values
+with source positions. Re-run the opt-in updater test when upgrading the action.
+
+For `dev` to `main` promotions, use a PR title beginning with `feat:` when the
+promotion includes a new feature, `fix:` for patches or maintenance, and `!`
+before the colon for breaking changes. Preserve that title in the merge commit.
+CI checks the title against all commits reachable from `dev` but absent from
+`main`, including older commits. It runs again when the PR title is edited.
+This gives Release Please a current commit with the correct change type even
+when the feature commits predate the previous release. Features increase the
+minor version before 1.0; for example, `0.2.0` becomes `0.3.0`. Fixes increase
+the patch version. Breaking changes follow the default major-version rule.
+
+The opt-in release automation test uses `release-please@17.6.0`, matching the
+pinned action. Install it with `npm install --ignore-scripts --no-audit --no-fund
+--prefix <temporary-directory> release-please@17.6.0`, set
+`RELEASE_PLEASE_NODE_MODULES` to that directory's `node_modules`, and run
+`uv run pytest tests/integration -m integration`. The test uses synthetic data
+and makes no GitHub requests. This temporary tool is not a package dependency.
