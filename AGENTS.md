@@ -115,6 +115,10 @@ Build artifacts are local validation output and must remain uncommitted. This pr
 - Dependabot must update the `uv` ecosystem and pinned GitHub Actions.
 - Release Please must manage release pull requests, tags, and GitHub Releases only.
 - Keep merge commits supported. Use Release Please's `github` changelog type so each merged pull request appears once; do not deduplicate generated notes by hand. Conventional Commits still determine version bumps.
+- Release Please must update the root package entry in `uv.lock` in the same commit as the project version and release manifest. Select the entry by package name; never update dependency versions as part of a release version bump.
+- For `dev` to `main` promotions, use `feat:` when any unreleased commit adds a feature, `fix:` for patches or maintenance, and `!` for breaking changes. Preserve the PR title in the merge commit. The CI promotion check compares the full base-to-head commit range and reruns on title edits.
+- Features increment the minor version even before 1.0. Fixes increment the patch version; breaking changes use the default major-version increment. Do not add a permanent `release-as` override to repair one release.
+- Include `.github/scripts` in type checking and the 100% unit-test coverage gate. Release Please library checks stay opt-in under `tests/integration` and must never run in CI.
 - Keep current implementation and release-status snapshots in the README `Current state` section, not in this file.
 
 When changing GitHub Actions:
