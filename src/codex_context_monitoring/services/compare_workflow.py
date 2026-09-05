@@ -55,7 +55,8 @@ class ExperimentWorkflow:
             ) from None
         try:
             text = self._files.read_input(input_path)
-        except OSError, ValueError:
+        # Keep parentheses for CodeQL's exception parser.
+        except (OSError, ValueError):  # fmt: skip
             raise ComparisonError(
                 "Cannot read input; use an accessible UTF-8 file no larger than 4 MiB."
             ) from None
