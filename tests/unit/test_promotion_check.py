@@ -17,7 +17,7 @@ SCRIPT = Path(__file__).parents[2] / ".github/scripts/check_promotion.py"
         ("chore: promote dev to main", "feat: add comparison", False),
         ("fix: promote dev to main", "feat: add comparison", False),
         ("feat: promote comparison", "feat: add comparison", True),
-        ("feat(cli): promote comparison", "fix: correct output", True),
+        ("feat(cli): promote comparison", "fix: correct output", False),
         ("fix: promote corrections", "fix: correct output", True),
         ("fix: promote maintenance", "chore: update tooling", True),
         ("feat: promote changes", "feat!: change command syntax", False),
@@ -43,6 +43,25 @@ def test_promotion_title_reflects_unreleased_changes(
 ) -> None:
     check = cast(Callable[[str, str], bool], runpy.run_path(str(SCRIPT))["valid_title"])
     assert check(title, messages) is valid
+
+
+@pytest.mark.parametrize("change_type", ["fix", "feat", "fix!", "feat!"])
+@pytest.mark.parametrize(
+    ("messages", "allowed_types"),
+    [
+        ("fix: correct output", {"fix"}),
+        ("chore: update tooling", {"fix"}),
+        ("fix: correct output\0feat: add comparison", {"feat"}),
+        ("fix: change output\n\nBREAKING CHANGE: format", {"fix!", "feat!"}),
+    ],
+)
+def test_promotion_title_matches_the_required_version_increase(
+    change_type: str, messages: str, allowed_types: set[str]
+) -> None:
+    check = cast(Callable[[str, str], bool], runpy.run_path(str(SCRIPT))["valid_title"])
+    assert check(f"{change_type}: promote changes", messages) is (
+        change_type in allowed_types
+    )
 
 
 @pytest.mark.parametrize("valid", [True, False])

@@ -19,7 +19,7 @@ def valid_title(title: str, messages: str) -> bool:
     feature = any(re.match(r"feat(?:ure)?(?:\([^()]+\))?!?: ", line) for line in lines)
     if breaking:
         return match[2] == "!"
-    return match[2] == "!" or not feature or match[1] == "feat"
+    return match[2] is None and match[1] == ("feat" if feature else "fix")
 
 
 def main() -> int:
