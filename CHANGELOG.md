@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.2 (2026-09-12)
+
+## What's Changed
+* chore(deps): bump ty from 0.0.75 to 0.0.78 by @dependabot[bot] in https://github.com/liijamiilmfs/codex-context-monitoring/pull/36
+* chore(deps): bump ruff from 0.16.5 to 0.16.6 by @dependabot[bot] in https://github.com/liijamiilmfs/codex-context-monitoring/pull/35
+
+
+**Full Changelog**: https://github.com/liijamiilmfs/codex-context-monitoring/compare/v0.3.1...v0.3.2
+
 ## 0.3.1 (2026-09-12)
 
 ## What's Changed
