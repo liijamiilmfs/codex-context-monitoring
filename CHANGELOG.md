@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 (2026-09-12)
+
+## What's Changed
+* docs: clarify agent guidance for main by @liijamiilmfs in https://github.com/liijamiilmfs/codex-context-monitoring/pull/38
+
+
+**Full Changelog**: https://github.com/liijamiilmfs/codex-context-monitoring/compare/v0.3.0...v0.3.1
+
 ## 0.3.0 (2026-09-05)
 
 ## What's Changed
