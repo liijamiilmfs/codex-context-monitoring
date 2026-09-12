@@ -12,7 +12,7 @@
 - ty performs static type checking.
 - pytest runs the test suite, pytest-mock isolates unit-test subjects from external dependencies, and coverage.py measures unit-test coverage.
 - Source uses the `src` layout under `src/codex_context_monitoring/`.
-- Unit tests live under `tests/unit/`. Opt-in integration tests live under `tests/integration/`. Test modules use `test_*.py` names.
+- Unit tests live under `tests/unit/`. Put opt-in integration tests under `tests/integration/` when present. Test modules use `test_*.py` names.
 - GitHub automation lives under `.github/`.
 
 ## Architecture
@@ -22,7 +22,7 @@
 
 ## Setup
 
-Install the locked development environment from the repository root:
+When setting up or refreshing the development environment, install the locked dependencies from the repository root:
 
 ```powershell
 uv sync --locked --all-groups
@@ -39,7 +39,7 @@ Use test-driven development for behavior changes:
 1. Add or update a focused test.
 2. Run it and observe the expected failure.
 3. Implement the smallest passing change.
-4. Run the focused test and then the full quality gate.
+4. Run the focused test, then the implementation checks below before reporting the change complete.
 
 Keep package code in `src/codex_context_monitoring/`. Keep tests outside the package in `tests/`. Add abstractions only when current behavior requires them.
 
@@ -48,24 +48,22 @@ The manual controlled-comparison command is `uv run codex-context-monitoring com
 ## Issue Tracking
 
 - issues are tracked via Linear in project Codex Context Monitoring `62cac867-d721-4df9-99d2-8d5310166b94`
-- issues should be moved to `In Progress` when being worked on. The rest of the flows is handled by openining and successfully merging a PR. 
-- comments should be added to issues explaining closure evidence 
+- issues should be moved to `In Progress` when being worked on. The rest of the flows is handled by openining and successfully merging a PR.
+- comments should be added to issues explaining closure evidence
     - brevity is key in Linear comment posts
 
-## Required validation
+## Validation by change
 
-Run the complete local quality gate before reporting an implementation complete:
+For executable code, tests, dependencies, or build and CI configuration changes,
+run the complete [Development checks](README.md#development-checks) sequence
+before reporting implementation complete. It covers Ruff formatting and linting,
+ty, unit-only branch coverage at 100%, coverage reports, package build, and lock
+consistency. Preserve every configured coverage requirement; focused tests during
+development do not replace this gate.
 
-```powershell
-uv run ruff format --check .
-uv run ruff check .
-uv run ty check
-uv run coverage run -m pytest tests/unit -m "not integration"
-uv run coverage report
-uv run coverage xml
-uv build
-uv lock --check
-```
+For guidance-only changes, inspect referenced files and commands and run
+`git diff --check`. Do not add or run documentation tests or run the application
+and build merely to validate prose.
 
 Run one test file or a selected test during development with:
 
@@ -107,7 +105,12 @@ Build with `uv build`. The command produces a wheel and source archive under `di
 
 Build artifacts are local validation output and must remain uncommitted. This project is not published to PyPI. Do not add PyPI publishing, trusted-publisher configuration, registry credentials, or package-upload steps unless Josh explicitly changes that scope.
 
-## GitHub automation requirements
+## CI and release work
+
+When changing automation, read the affected files under `.github/` and preserve
+these requirements. For release configuration changes or an explicitly approved
+promotion, read [Releases](README.md#releases) and `release-please-config.json`.
+Routine application work does not require release setup or release integration tests.
 
 - CI must run Ruff formatting, Ruff linting, ty, a package build, and unit-only pytest with coverage. Unit tests and the coverage gate must run on Ubuntu and Windows; integration tests must never run in CI.
 - CI must upload the unit-test `coverage.xml` report to Codecov for `liijamiilmfs/codex-context-monitoring` after the coverage gate passes.
